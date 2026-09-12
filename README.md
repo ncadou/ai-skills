@@ -9,7 +9,10 @@ ai-skills/
 ├── LICENSE
 ├── README.md
 └── skills/
-    └── <skill-name>/
+    ├── nlearn/
+    ├── nplan/
+    ├── nbuild/
+    └── nreview/
 ```
 
 ## Adding a skill
