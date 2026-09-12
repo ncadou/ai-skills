@@ -1,0 +1,22 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*~
+
+# Temp
+*.tmp
+*.bak
+
+# Python (skills with helper scripts)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Node (skills with helper scripts)
+node_modules/
