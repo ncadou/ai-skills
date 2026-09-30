@@ -1,8 +1,6 @@
-# skills
+# ndev
 
-Each subfolder is one skill. Each skill decides its own file layout; there is no repo-wide standard yet.
-
-## ndev system
+A bundle of six skills, declared as the `ndev` plugin in `.claude-plugin/marketplace.json` at the repo root. Each subfolder is one skill.
 
 Phased workflow, human-gated. Each phase's artifact anchors the next, under `.ndev/`:
 

@@ -1,0 +1,23 @@
+{
+  "name": "ai-skills",
+  "description": "AI skills for software development.",
+  "owner": {
+    "name": "Nicolas Cadou"
+  },
+  "plugins": [
+    {
+      "name": "ndev",
+      "description": "Phased, human-gated dev workflow: nstart, nlearn, ndesign, nplan, nbuild, nreview.",
+      "source": "./skills/ndev",
+      "strict": false,
+      "skills": [
+        "./nstart",
+        "./nlearn",
+        "./ndesign",
+        "./nplan",
+        "./nbuild",
+        "./nreview"
+      ]
+    }
+  ]
+}

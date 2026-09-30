@@ -6,26 +6,50 @@ Home for the AI skills I use for software development.
 
 ```text
 ai-skills/
+├── .claude-plugin/
+│   └── marketplace.json   # declares each bundle as a plugin
 ├── LICENSE
 ├── README.md
 └── skills/
-    ├── nstart/
-    ├── nlearn/
-    ├── ndesign/
-    ├── nplan/
-    ├── nbuild/
-    └── nreview/
+    └── ndev/              # bundle: see skills/ndev/README.md
+        ├── nstart/
+        ├── nlearn/
+        ├── ndesign/
+        ├── nplan/
+        ├── nbuild/
+        └── nreview/
 ```
 
 ## Adding a skill
 
-1. Create a new folder under `skills/<skill-name>/`.
+1. Create a new folder under `skills/<bundle>/<skill-name>/`.
 2. Add the skill files. Format is decided per-skill for now (no repo-wide standard yet).
 3. Document what the skill does, when to use it, and how to invoke it.
+4. Add `./<skill-name>` to the bundle's `skills` list in `.claude-plugin/marketplace.json`. For a new bundle, add a new plugin entry with `"source": "./skills/<bundle>"`.
 
 ## Using skills
 
-Point your agent at this repo, or symlink / copy the relevant `skills/<skill-name>/` folder into your agent's skills directory.
+With [`npx skills`](https://github.com/vercel-labs/skills) (OpenCode, Claude Code, Codex, Cursor, and others):
+
+```sh
+# Pick skills interactively; they are grouped by bundle
+npx skills@latest add ncadou/ai-skills
+
+# Install the whole ndev bundle
+npx skills@latest add ncadou/ai-skills/skills/ndev
+
+# From the self-hosted remote (no subpath support: select skills by name)
+npx skills@latest add ssh://git@git.gateway.cadou.ca:2222/nicolas/ai-skills.git --skill '*'
+```
+
+With the Claude Code plugin marketplace (skills are then named `/ndev:nstart`, etc.):
+
+```text
+/plugin marketplace add ncadou/ai-skills
+/plugin install ndev@ai-skills
+```
+
+Or symlink / copy the relevant `skills/<bundle>/<skill-name>/` folder into your agent's skills directory.
 
 ## License
 
