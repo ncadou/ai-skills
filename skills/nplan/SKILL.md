@@ -1,56 +1,77 @@
 ---
 name: nplan
-description: Architecture blueprint from .ndev/discovery.md, producing .ndev/spec.md and .ndev/tasks/.
+description: Break the ndev design into task slices, producing .ndev/plan.md and .ndev/tasks/.
 disable-model-invocation: true
 ---
 
-Draw the blueprint. Produce only `.ndev/spec.md` and `.ndev/tasks/`; leave discovery to `nlearn` and code to `nbuild`.
+Break the design into tasks. Produce only `.ndev/plan.md`, `.ndev/tasks/`, and entries in `.ndev/questions.md`; leave design to `ndesign` and code to `nbuild`. Take every contract from `.ndev/design.md` as written.
+
+The user approves the plan. Follow `.ndev/brief.md` § Control when it exists. The user can delegate the plan or waive its gate at any time; record it on the plan's `Approved:` line.
+
+## Inputs
+
+- `.ndev/design.md`: the contracts to slice, with decisions (`D<n>`). If it is missing, work from `.ndev/brief.md`, `.ndev/discovery.md`, and the user, but only for work that adds or changes no boundary or contract; otherwise backtrack to `ndesign`.
+- `.ndev/brief.md`: objectives (`O<n>`) and § Control.
+- `.ndev/questions.md`: every open question marked `for nplan` is in scope for this run, and so is every question marked `for user` that the user answers here. Tick each one and point to its answer: `- [x] Q<n>: … → T<NN>` or `→ plan § <section>`.
+- Existing `.ndev/plan.md`: revise it in place. Read each task's status from its task file, and leave every task whose status is `done`, `pass`, or `accepted` unchanged. Keep a replaced task file and add `Superseded by T<NN>: <reason>` under its status.
 
 ## Steps
 
-### 1. Load discovery
+### 1. Check the design is complete
 
-Read `.ndev/discovery.md`. If it is missing, stop and ask the user to run `nlearn` first.
+Trace every objective to the decisions, components, and skeletons that deliver it, and record the trace in `plan.md` § Traceability. Each trace that ends in a missing or ambiguous contract is a gap, and so is each decision without a `Decided by` line. With no design, confirm with the user that the work adds or changes no contract.
 
-Done when discovery is loaded, or the run has stopped with that prompt.
+Done when every objective traces to design contracts (or the user confirmed none are needed), every decision has an owner, and the trace is recorded, or the run has stopped on a Backtrack.
 
-### 2. Define the blueprint
+### 2. Slice into tasks
 
-Define component boundaries, schemas, and skeleton signatures (types, function signatures, interfaces) without full logic.
+Decompose the design into numbered, independent, testable slices. Write one file per slice at `.ndev/tasks/task-NN-<slug>.md` using the task template below; its ID is `T<NN>`, matching the file number. Index the tasks in `.ndev/plan.md` in build order, with their dependencies. Status lives only in the task files. When a slice needs a type, signature, or boundary that the design lacks, record it as a gap and backtrack.
 
-Done when every new boundary and contract in scope has a skeleton in `.ndev/spec.md`.
+Done when every skeleton in `.ndev/design.md` is covered by at least one task, and every task has the objectives it serves, files to touch, the design sections and decisions it implements, a runnable acceptance command, and expected behavior, with nothing shared unwritten between files.
 
-### 3. Slice into tasks
+### 3. Get the plan approved
 
-Decompose the blueprint into numbered, independent, testable slices. Write one file per slice at `.ndev/tasks/task-NN-<slug>.md` using the task template below, and index them from `.ndev/spec.md`.
+Present the slices, their size, build order, dependencies, and acceptance commands. The user approves, changes, or delegates them.
 
-Done when every slice has its own task file with files to touch, a runnable acceptance command, and expected behavior, with nothing shared unwritten between files.
+Done when the user approves the plan, or has delegated its gate, and `plan.md` records it on its `Approved:` line.
 
-## Spec template
+## Backtrack
+
+When a trigger below fires, stop. Append each gap to `.ndev/questions.md` as `- [ ] Q<n>: <gap> (from nplan/<user|agent>, for <phase>) stale: <artifacts or none>`, listing the downstream artifacts that rerun may make stale. Name the phase for the user to run. The user decides.
+
+- A contract is missing, ambiguous, or too coarse to slice: `ndesign`.
+- A decision records no `Decided by`: `ndesign`.
+- A slice depends on behavior nobody has verified: `nlearn`.
+
+## Plan template
 
 ```markdown
-# Spec: <topic>
+# Plan: <topic>
 
-## Architecture
+## Traceability
 
-Boundaries and how the slices compose.
-
-## Interfaces & Skeletons
-
-Types, signatures, schemas. No logic.
+- O1 → D<n>, …; <component>, …; T01, T02
 
 ## Tasks
 
-- [ ] `tasks/task-01-<slug>.md`
-- [ ] `tasks/task-02-<slug>.md`
+- T01 `tasks/task-01-<slug>.md` — <title> (depends on: none)
+- T02 `tasks/task-02-<slug>.md` — <title> (depends on: T01)
+
+Status lives in each task file.
+
+Approved: user | agent (delegated: <scope>)
 ```
 
 ## Task template
 
 ```markdown
-# Task NN: <title>
+# T01: <title>
 
 Status: pending
+
+Serves: O<n>, …
+
+Implements: `design.md` § <section>, D<n>, …; or `none` when the design was skipped.
 
 ## Scope
 
@@ -61,6 +82,16 @@ Files to create or edit.
 Test command: `<exact command, e.g. pytest tests/test_feature.py -k test_happy_path>`
 
 Expected behavior:
+
+## Evidence
+
+Written by `nbuild`: one entry per build.
+
+## Review
+
+Written by `nreview`: one entry per review.
+
+Accepted by:
 ```
 
-The task template is canonical here; `nbuild` consumes these files as written.
+The task template is canonical here; `nbuild` and `nreview` consume these files as written. Status moves `pending` → `done` (`nbuild`) → `pass` | `fail` (`nreview`) → `accepted` (optional). The user owns `accepted` and `Accepted by:`: they set it directly, ask the agent to, or delegate acceptance.

@@ -4,33 +4,53 @@ description: Discovery investigation producing .ndev/discovery.md with validated
 disable-model-invocation: true
 ---
 
-Run a discovery investigation. Produce only `.ndev/discovery.md`; leave the blueprint to `nplan` and code to `nbuild`.
+Run a discovery investigation, so that both you and the user learn before anyone designs or decides. Produce only `.ndev/discovery.md` and entries in `.ndev/questions.md`; leave design to `ndesign`, tasks to `nplan`, and code to `nbuild`.
+
+Follow `.ndev/brief.md` § Control when it exists. The user can delegate a step or waive a gate at any time; record it on the `Approved:` line of the section it affects.
+
+## Inputs
+
+- `.ndev/brief.md`: objectives (`O<n>`) and non-goals. If it is missing, confirm objectives and non-goals with the user.
+- `.ndev/questions.md`: every open question marked `for nlearn` is in scope for this run, and so is every question marked `for user` that the user answers here.
+- Existing `.ndev/discovery.md`: add to it. Keep earlier findings; mark any that new evidence overturns `Superseded by F<n>: <reason>`.
 
 ## Steps
 
-### 1. Fix the scope
+### 1. Fix the questions
 
-Confirm the brief with the user: objectives and explicit non-goals.
+List what this run must answer: open questions marked `for nlearn`, plus gaps in the brief's approach. Ask the user what they already know and what they want answered. Append each new question to `.ndev/questions.md` as `- [ ] Q<n>: <question> (from nlearn/<user|agent>, for <phase|user>)`, with the next free number. With no brief and no open questions, derive the list from the user's request.
 
-Done when objectives and non-goals are written down and the user agrees.
+Done when every question in scope has an ID, and the user agrees with the list.
 
 ### 2. Map reference patterns
 
-Search the codebase and relevant libraries for existing conventions the work must follow. Cite every claim with a file path.
+Search the codebase and relevant libraries for existing conventions in the touched areas. Record each as a finding `F<n>`, with its file path. A convention is a candidate constraint: `ndesign` decides whether to adopt it.
 
-Done when every touched area names its reference files, or states that none exist.
+Done when every touched area names its reference findings, or states that none exist.
 
 ### 3. Validate assumptions with spikes
 
-List hidden dependencies, data contracts, and failure points. For each ambiguous behavior, run a minimal spike under `/tmp` or `.ndev/scratch/` and log actual output, never assumed output.
+List hidden dependencies, data contracts, and failure points, each as a finding. For each ambiguous behavior, run a minimal spike under `/tmp` or `.ndev/scratch/` and log actual output, never assumed output. When no spike can check an assumption, ask the user: they supply the fact (`Source: user`), rule on the risk, or leave it open as a question.
 
-Done when every assumption has a validation note and its observed outcome.
+Done when every assumption has a Source and a Status, and every unverified one has a Ruling or an open question.
 
-### 4. Write `.ndev/discovery.md`
+### 4. Walk the user through the findings
 
-Write the artifact using the template below. Report risks to the user; the human runs `nplan` next.
+Present the findings so the user can follow the evidence: what was checked, how, and what it showed. The user can challenge a finding, add facts of their own as findings with `Source: user`, ask new questions, and accept or reject each risk.
 
-Done when `.ndev/discovery.md` exists and every section is filled.
+Done when the user has reviewed every new finding and ruled on every risk, or has waived this gate.
+
+### 5. Write `.ndev/discovery.md`
+
+Write or extend the artifact using the template below. In `.ndev/questions.md`, tick each question answered and point to its finding: `- [x] Q<n>: … → F<n>`. Report open risks to the user; the human runs the next phase, usually `ndesign`.
+
+Done when every question from step 1 is ticked or still open with a reason, and every section of `.ndev/discovery.md` is filled.
+
+## Backtrack
+
+When a trigger below fires, stop. Append each gap to `.ndev/questions.md` as `- [ ] Q<n>: <gap> (from nlearn/<user|agent>, for <phase>) stale: <artifacts or none>`, listing the downstream artifacts that rerun may make stale. Name the phase for the user to run. The user decides.
+
+- Findings contradict the objectives, or make a non-goal unavoidable: `nstart`.
 
 ## Discovery template
 
@@ -39,17 +59,33 @@ Done when `.ndev/discovery.md` exists and every section is filled.
 
 ## Problem & Objectives
 
-Scope, plus explicit non-goals.
+Cite the objectives by ID from `.ndev/brief.md`. Restate scope and non-goals only when the brief is missing.
 
 ## Reference Patterns
 
-Files, conventions, or third-party implementations examined, with paths.
+### F1: <convention>
+
+- Source: <file path or doc>
+- Applies to: <touched area>
+- Answers: Q<n> (when any)
 
 ## Assumptions & Validation
 
-Each assumption, how it was tested, and the observed outcome.
+### F2: <assumption>
+
+- Source: <file path | spike path and observed output | doc | user>
+- Status: verified | refuted | unverified | Superseded by F<n>: <reason>
+- Ruling (when unverified): accepted | rejected: <reason> — by user | agent (delegated: <scope>)
+- Answers: Q<n> (when any)
 
 ## Identified Risks & Spikes
 
-Spike snippets run, edge cases observed, constraints discovered.
+### F3: <risk or constraint>
+
+- Source: <spike path and observed output, edge case, or file path>
+- Ruling: accepted | rejected: <reason> — by user | agent (delegated: <scope>)
+
+## Walkthrough
+
+- F1–F<n>: Approved: user | agent (delegated: <scope>)
 ```

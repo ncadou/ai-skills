@@ -9,7 +9,9 @@ ai-skills/
 ├── LICENSE
 ├── README.md
 └── skills/
+    ├── nstart/
     ├── nlearn/
+    ├── ndesign/
     ├── nplan/
     ├── nbuild/
     └── nreview/
