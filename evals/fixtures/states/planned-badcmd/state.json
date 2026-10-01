@@ -1,0 +1,4 @@
+{
+  "extends": "planned",
+  "description": "Like planned, but T01's acceptance command is `make test-slugify` and the repo has no Makefile."
+}

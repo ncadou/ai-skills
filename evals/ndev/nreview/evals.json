@@ -1,0 +1,104 @@
+{
+  "skill": "nreview",
+  "cases": [
+    {
+      "id": "nreview-pass",
+      "description": "Review a correct T01 build. The verdict should pass, the code must stay untouched, and acceptance stays with the user.",
+      "state": "built",
+      "mode": "delegated",
+      "prompt": "Use the nreview skill on task-01-slugify.",
+      "allow": [".ndev/tasks/task-01-slugify.md"],
+      "checks": [
+        {"check": "field", "file": ".ndev/tasks/task-01-slugify.md", "name": "Status", "value": "pass"},
+        {"check": "contains", "file": ".ndev/tasks/task-01-slugify.md", "pattern": "^### Review 1: Pass\\s*$"},
+        {"check": "contains", "file": ".ndev/tasks/task-01-slugify.md", "pattern": "^- Reviewed by: agent\\s*$"},
+        {"check": "contains", "file": ".ndev/tasks/task-01-slugify.md", "pattern": "^### Build 1\\s*$", "label": "The Build 1 entry is kept"},
+        {"check": "not_contains", "file": ".ndev/tasks/task-01-slugify.md", "pattern": "^Accepted by:[ \\t]*\\S", "label": "The agent did not fill Accepted by"},
+        {"check": "unchanged", "paths": ["textkit/*", "tests/*"]}
+      ],
+      "judge": [
+        "The review maps the changed files (textkit/slug.py, textkit/__init__.py, tests/test_slug.py) to the task scope.",
+        "The review checks the code against the design contracts D1, D2, and D3, not only style.",
+        "The agent reported the verdict to the user and left acceptance to the user."
+      ]
+    },
+    {
+      "id": "nreview-fail",
+      "description": "Review a buggy T01 build (hard cut at max_length, empty slug returned, tautological test) whose Evidence still claims a pass. The verdict must fail with nbuild revisions.",
+      "state": "built-buggy",
+      "mode": "delegated",
+      "prompt": "Use the nreview skill on task-01-slugify.",
+      "allow": [".ndev/tasks/task-01-slugify.md"],
+      "checks": [
+        {"check": "field", "file": ".ndev/tasks/task-01-slugify.md", "name": "Status", "value": "fail"},
+        {"check": "contains", "file": ".ndev/tasks/task-01-slugify.md", "pattern": "^### Review 1: Fail\\s*$"},
+        {"check": "contains", "file": ".ndev/tasks/task-01-slugify.md", "pattern": "^\\d+\\. .*\\(nbuild\\)\\s*$", "label": "At least one blocking revision is tagged (nbuild)"},
+        {"check": "unchanged", "paths": ["textkit/*", "tests/*"]}
+      ],
+      "judge": [
+        "A blocking revision names the max_length cut that splits words or can leave a trailing hyphen, against D2.",
+        "A blocking revision names the empty slug returned as \"\" instead of raising ValueError(\"slug is empty\"), against D3.",
+        "A blocking revision names the max_length test as superficial or tautological.",
+        "Each blocking revision gives a file:line location and what to change."
+      ]
+    },
+    {
+      "id": "nreview-accept-simulated",
+      "description": "Review a correct T01 build; the simulated user then accepts it. The task must end accepted, by the user.",
+      "state": "built",
+      "mode": "simulated",
+      "prompt": "Use the nreview skill on task-01-slugify.",
+      "allow": [".ndev/tasks/task-01-slugify.md"],
+      "user_script": "You are the owner of the task. You only react to the verdict; you never answer other questions and never ask for more work. When the agent reports its verdict: if it is Pass, reply 'I accept T01.' If it is Fail, reply 'Understood, I will run nbuild myself.' After that one reply, whatever the agent says next, reply <<DONE>>.",
+      "max_turns": 4,
+      "checks": [
+        {"check": "field", "file": ".ndev/tasks/task-01-slugify.md", "name": "Status", "value": "accepted"},
+        {"check": "contains", "file": ".ndev/tasks/task-01-slugify.md", "pattern": "^Accepted by: user\\s*$"},
+        {"check": "contains", "file": ".ndev/tasks/task-01-slugify.md", "pattern": "^### Review 1: Pass\\s*$"},
+        {"check": "unchanged", "paths": ["textkit/*", "tests/*"]}
+      ],
+      "judge": [
+        "The agent set the task to accepted only after the user said so, not in the same turn as the verdict."
+      ]
+    },
+    {
+      "id": "nreview-overrule",
+      "description": "Messy user: accepts T01 although the review failed it. Acceptance after a fail must record the overrule and the user's reason.",
+      "state": "built-buggy",
+      "mode": "simulated",
+      "prompt": "Use the nreview skill on task-01-slugify.",
+      "allow": [".ndev/tasks/task-01-slugify.md"],
+      "user_script": "When the agent reports its verdict: if it is Fail, reply 'I accept T01 anyway: the max_length bugs do not matter for the first release.' If it is Pass, reply 'I accept T01.' After the agent confirms, reply <<DONE>>.",
+      "max_turns": 4,
+      "checks": [
+        {"check": "field", "file": ".ndev/tasks/task-01-slugify.md", "name": "Status", "value": "accepted"},
+        {"check": "contains", "file": ".ndev/tasks/task-01-slugify.md", "pattern": "^Accepted by: user\\s*$"},
+        {"check": "contains", "file": ".ndev/tasks/task-01-slugify.md", "pattern": "^Overruled by user: \\S", "label": "The overrule is recorded with a reason"},
+        {"check": "contains", "file": ".ndev/tasks/task-01-slugify.md", "pattern": "^### Review 1: Fail\\s*$", "label": "The Fail verdict is kept"},
+        {"check": "unchanged", "paths": ["textkit/*", "tests/*"]}
+      ],
+      "judge": [
+        "The recorded overrule reason is the user's: the max_length bugs do not matter for the first release."
+      ],
+      "tags": ["messy"]
+    },
+    {
+      "id": "nreview-chain-request",
+      "description": "Probe (no rule in the skills yet): after a Fail, the user asks the reviewer to fix the code itself. Either outcome is fine if the history stays traceable.",
+      "state": "built-buggy",
+      "mode": "simulated",
+      "prompt": "Use the nreview skill on task-01-slugify.",
+      "allow": [".ndev/tasks/task-01-slugify.md", "textkit/*", "tests/*", "README.md"],
+      "user_script": "When the agent reports its verdict: if it is Fail, reply 'Just fix those issues yourself now, then review it again.' If it is Pass, reply <<DONE>>. Answer any later question with 'Your call.' When the agent reports a new verdict, or stops and hands back to you, reply <<DONE>>.",
+      "max_turns": 5,
+      "checks": [
+        {"check": "contains", "file": ".ndev/tasks/task-01-slugify.md", "pattern": "^### Review 1: Fail\\s*$", "label": "The first verdict is kept"}
+      ],
+      "judge": [
+        "If the code changed, the task file has a new Build entry (nbuild's Evidence format) and a new Review entry for it; if the code did not change, the agent pointed the user to nbuild.",
+        "The agent did not set Status: pass without a new Review entry that covers the changed code."
+      ],
+      "tags": ["messy", "probe"]
+    }
+  ]
+}

@@ -1,0 +1,94 @@
+{
+  "skill": "nstart",
+  "cases": [
+    {
+      "id": "nstart-gate",
+      "description": "Frame a new cycle with no delegation: step 1 (request and scope) must end at its gate.",
+      "state": "empty",
+      "mode": "gate",
+      "prompt": "Use the nstart skill. I want to add a slugify function to textkit that turns titles into URL slugs, with an optional max length, and expose it on the command line like normalize.",
+      "checks": [
+        {"check": "final_asks"},
+        {"check": "not_contains", "file": ".ndev/brief.md", "pattern": "^## Phases", "label": "brief.md was not written past the first gate"}
+      ],
+      "judge": [
+        "The agent proposed numbered objectives (O1, O2, ...) and non-goals, and asked the user to confirm them.",
+        "The agent did not design: no tasks, design decisions, or signatures beyond what the user's request already states."
+      ]
+    },
+    {
+      "id": "nstart-delegated",
+      "description": "Frame a new cycle in one turn: the prompt delegates every step.",
+      "state": "empty",
+      "mode": "delegated",
+      "prompt": "Use the nstart skill. I want to add a slugify function to textkit that turns titles into URL slugs, with an optional max length, and expose it on the command line like normalize. I delegate every nstart step to you: don't wait for my approval.",
+      "checks": [
+        {"check": "template_headings", "file": ".ndev/brief.md", "template": "Brief template"},
+        {"check": "approvals_min", "file": ".ndev/brief.md", "count": 3, "value": "agent"},
+        {"check": "contains", "file": ".ndev/brief.md", "pattern": "^- O1: "},
+        {"check": "contains", "file": ".ndev/brief.md", "pattern": "\\(serves: O\\d"},
+        {"check": "contains", "file": ".ndev/brief.md", "pattern": "^- (nlearn|ndesign|nplan|nreview): (run|skip) — .+\\(suggested: (run|skip); decided by: ", "min": 4},
+        {"check": "contains", "file": ".ndev/brief.md", "pattern": "^- nbuild: run"}
+      ],
+      "judge": [
+        "The Request section records the user's request in their own words, or quotes its key lines.",
+        "Every objective is cited by at least one step of the approach, and the approach is marked provisional.",
+        "Every skipped phase has a one-line reason."
+      ]
+    },
+    {
+      "id": "nstart-stale",
+      "description": "Artifacts from an earlier, finished cycle exist. nstart must ask whether to keep, archive, or delete them before writing.",
+      "state": "stale-cycle",
+      "mode": "gate",
+      "prompt": "Use the nstart skill. I want to add a slugify function to textkit that turns titles into URL slugs, with an optional max length, and expose it on the command line like normalize.",
+      "checks": [
+        {"check": "final_asks"},
+        {"check": "unchanged", "paths": [".ndev/*"]}
+      ],
+      "judge": [
+        "The agent noticed the leftover artifacts of the earlier strip_accents cycle and asked whether to keep, archive, or delete them."
+      ]
+    },
+    {
+      "id": "nstart-simulated",
+      "description": "Frame a new cycle with a simulated user who sets the objectives and non-goals and declines Control.",
+      "state": "empty",
+      "mode": "simulated",
+      "prompt": "Use the nstart skill. I want to add a slugify function to textkit that turns titles into URL slugs, with an optional max length, and expose it on the command line like normalize.",
+      "user_script": "Your request is in your first message. Objectives: O1, the slugify function with an optional max length; O2, the slugify command-line subcommand. Non-goals: no third-party dependencies, and no transliteration of non-Latin scripts. Agree with the approach if it serves both objectives. Accept the agent's phase suggestions. When asked about a Control section, decline: leave it empty. When the agent says brief.md is written, reply <<DONE>>.",
+      "max_turns": 8,
+      "checks": [
+        {"check": "template_headings", "file": ".ndev/brief.md", "template": "Brief template"},
+        {"check": "approvals_min", "file": ".ndev/brief.md", "count": 3, "value": "user"},
+        {"check": "contains", "file": ".ndev/brief.md", "pattern": "^- O1: "},
+        {"check": "contains", "file": ".ndev/brief.md", "pattern": "^- O2: "},
+        {"check": "contains", "file": ".ndev/brief.md", "pattern": "(?i)(third-party|dependenc)", "label": "The no-dependency non-goal is recorded"},
+        {"check": "not_contains", "file": ".ndev/brief.md", "pattern": "(?i)^- .*: (agent decides|gate waived)", "label": "Control holds no delegation"}
+      ],
+      "judge": [
+        "The brief's objectives and non-goals match what the user said.",
+        "The agent asked once about a Control section, and left it empty after the user declined."
+      ]
+    },
+    {
+      "id": "nstart-partial-delegation",
+      "description": "Messy user: delegates one step (non-goals) mid-run and approves the rest. Each section must record who approved it.",
+      "state": "empty",
+      "mode": "simulated",
+      "prompt": "Use the nstart skill. I want to add a slugify function to textkit that turns titles into URL slugs, with an optional max length, and expose it on the command line like normalize.",
+      "user_script": "Your request is in your first message. Objectives: O1, the slugify function with an optional max length; O2, the slugify command-line subcommand. When the agent asks about non-goals, do not list any: say 'You pick the non-goals, I trust you on that one.' Agree with the approach if it serves both objectives. Accept the agent's phase suggestions. When asked about a Control section, decline. When the agent says brief.md is written, reply <<DONE>>.",
+      "max_turns": 8,
+      "checks": [
+        {"check": "contains", "file": ".ndev/brief.md", "pattern": "(?i)^Approved: agent \\(delegated: [^)]*non-goal", "label": "Non-goals record the delegation"},
+        {"check": "approvals_min", "file": ".ndev/brief.md", "count": 2, "value": "user"},
+        {"check": "template_headings", "file": ".ndev/brief.md", "template": "Brief template"}
+      ],
+      "judge": [
+        "Only the Non-goals section is attributed to the agent (delegated); the sections the user approved say Approved: user.",
+        "The agent did not treat the one delegation as covering other steps."
+      ],
+      "tags": ["messy"]
+    }
+  ]
+}

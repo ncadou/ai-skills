@@ -1,0 +1,4 @@
+{
+  "extends": "discovered",
+  "description": "ndesign done: design.md with process, D1-D3, architecture, and skeletons, all approved by the user."
+}

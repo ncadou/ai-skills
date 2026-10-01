@@ -1,0 +1,4 @@
+{
+  "extends": "discovered",
+  "description": "discovered, plus Q4: an open question for nlearn raised by ndesign about digits outside ASCII."
+}

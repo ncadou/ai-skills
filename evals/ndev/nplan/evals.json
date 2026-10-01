@@ -1,0 +1,99 @@
+{
+  "skill": "nplan",
+  "cases": [
+    {
+      "id": "nplan-delegated",
+      "description": "Slice a complete design into tasks, with the plan's gate delegated in the prompt.",
+      "state": "designed",
+      "mode": "delegated",
+      "prompt": "Use the nplan skill. I delegate the plan's approval to you.",
+      "checks": [
+        {"check": "template_headings", "file": ".ndev/plan.md", "template": "Plan template"},
+        {"check": "template_headings", "file": ".ndev/tasks/task-*.md", "template": "Task template"},
+        {"check": "file_exists", "path": ".ndev/tasks/task-01-*.md"},
+        {"check": "file_exists", "path": ".ndev/tasks/task-02-*.md"},
+        {"check": "contains", "file": ".ndev/plan.md", "pattern": "^- O1 → "},
+        {"check": "contains", "file": ".ndev/plan.md", "pattern": "^- O2 → "},
+        {"check": "approvals_min", "file": ".ndev/plan.md", "count": 1, "value": "agent"},
+        {"check": "contains", "file": ".ndev/tasks/task-*.md", "pattern": "^Status: pending\\s*$"},
+        {"check": "contains", "file": ".ndev/tasks/task-*.md", "pattern": "^Serves: O\\d"},
+        {"check": "contains", "file": ".ndev/tasks/task-*.md", "pattern": "^Implements: .*D\\d"},
+        {"check": "contains", "file": ".ndev/tasks/task-*.md", "pattern": "^Test command: `[^`]+`"},
+        {"check": "unchanged", "paths": [".ndev/design.md", ".ndev/brief.md"]}
+      ],
+      "judge": [
+        "Every skeleton in design.md (the slug module and the slugify subcommand) is covered by at least one task.",
+        "Each task's acceptance command can run in this repo as written (for example `python3 -m unittest ...`), and its expected behavior is concrete.",
+        "The plan builds the slugify function before the CLI subcommand, and states that dependency.",
+        "No task invents a contract (type, signature, error) that design.md does not state."
+      ]
+    },
+    {
+      "id": "nplan-gate",
+      "description": "Slice a complete design, with no delegation: the plan must wait for the user's approval.",
+      "state": "designed",
+      "mode": "gate",
+      "prompt": "Use the nplan skill.",
+      "checks": [
+        {"check": "final_asks"},
+        {"check": "not_contains", "file": ".ndev/plan.md", "pattern": "^Approved:[ \\t]*(user|agent)", "label": "plan.md claims no approval"}
+      ],
+      "judge": [
+        "The agent presented the slices with their size, build order, dependencies, and acceptance commands, and asked the user to approve them.",
+        "The agent did not start writing code."
+      ]
+    },
+    {
+      "id": "nplan-gap",
+      "description": "The design has two gaps (D3 lacks Decided by; the CLI has no skeleton). nplan must stop in step 1 and backtrack to ndesign.",
+      "state": "designed-gap",
+      "mode": "delegated",
+      "prompt": "Use the nplan skill. I delegate the plan's approval to you.",
+      "checks": [
+        {"check": "question_added", "for_phase": "ndesign", "stale": true},
+        {"check": "file_absent", "path": ".ndev/tasks/*.md", "label": "No task file was written"},
+        {"check": "unchanged", "paths": [".ndev/design.md"]}
+      ],
+      "judge": [
+        "The agent named the missing Decided by line on D3.",
+        "The agent named the missing skeleton for the slugify subcommand.",
+        "The agent named ndesign as the phase to rerun, and left that decision to the user."
+      ]
+    },
+    {
+      "id": "nplan-simulated",
+      "description": "Slice a complete design; the simulated user approves the plan.",
+      "state": "designed",
+      "mode": "simulated",
+      "prompt": "Use the nplan skill.",
+      "user_script": "You own the plan. When the agent presents the slices: if there are at least two tasks, each with a runnable acceptance command, approve the plan in one sentence. Otherwise ask for that. When the agent confirms the plan is written, reply <<DONE>>.",
+      "max_turns": 4,
+      "checks": [
+        {"check": "approvals_min", "file": ".ndev/plan.md", "count": 1, "value": "user"},
+        {"check": "template_headings", "file": ".ndev/tasks/task-*.md", "template": "Task template"},
+        {"check": "file_exists", "path": ".ndev/tasks/task-02-*.md"}
+      ],
+      "judge": [
+        "The agent asked for approval before recording it, and recorded it as the user's."
+      ]
+    },
+    {
+      "id": "nplan-reject-then-approve",
+      "description": "Messy user: rejects the first plan and asks for a single slice, then approves the revision.",
+      "state": "designed",
+      "mode": "simulated",
+      "prompt": "Use the nplan skill.",
+      "user_script": "When the agent first presents the plan, reject it: 'Merge everything into a single task; I want one slice.' When it presents the revised plan, approve it if it has one task that covers both the function and the command line. When the agent confirms the plan is written, reply <<DONE>>.",
+      "max_turns": 6,
+      "checks": [
+        {"check": "approvals_min", "file": ".ndev/plan.md", "count": 1, "value": "user"},
+        {"check": "template_headings", "file": ".ndev/tasks/task-*.md", "template": "Task template"}
+      ],
+      "judge": [
+        "The approved plan has a single active task whose scope covers both the slug module and the slugify subcommand, with an acceptance command for both.",
+        "The agent did not record approval for the first, rejected plan."
+      ],
+      "tags": ["messy"]
+    }
+  ]
+}

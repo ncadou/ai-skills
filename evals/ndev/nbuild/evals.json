@@ -1,0 +1,122 @@
+{
+  "skill": "nbuild",
+  "cases": [
+    {
+      "id": "nbuild-happy",
+      "description": "Build T01 (slugify function) from a complete plan and design. nbuild has no gate, so one turn should finish the slice.",
+      "state": "planned",
+      "mode": "delegated",
+      "prompt": "Use the nbuild skill to build task-01-slugify.",
+      "allow": [".ndev/tasks/task-01-slugify.md"],
+      "checks": [
+        {"check": "field", "file": ".ndev/tasks/task-01-slugify.md", "name": "Status", "value": "done"},
+        {"check": "contains", "file": ".ndev/tasks/task-01-slugify.md", "pattern": "^### Build 1\\s*$"},
+        {"check": "contains", "file": ".ndev/tasks/task-01-slugify.md", "pattern": "^- Command: `python3 -m unittest tests\\.test_slug -v`"},
+        {"check": "contains", "file": ".ndev/tasks/task-01-slugify.md", "pattern": "^- Result: pass"},
+        {"check": "contains", "file": ".ndev/tasks/task-01-slugify.md", "pattern": "^- Output: \\S"},
+        {"check": "command_passes", "cmd": "python3 -m unittest tests.test_slug -v", "label": "The acceptance command passes on the final tree"},
+        {"check": "command_passes", "cmd": "python3 -m unittest discover -s tests -t .", "label": "The whole test suite passes (no regressions)"},
+        {"check": "command_passes", "cmd": "python3 {hidden}/check_slugify.py", "label": "slugify meets the design contract (hidden check)"},
+        {"check": "unchanged", "paths": [".ndev/tasks/task-02-cli.md", ".ndev/design.md", ".ndev/plan.md", "textkit/__main__.py"]}
+      ],
+      "judge": [
+        "The agent built only T01 (the slugify function) and did not implement the T02 command-line subcommand.",
+        "The new tests cover failure modes (ValueError for an empty slug and for max_length below 1, TypeError for bad types), not only the happy path.",
+        "The Evidence entry's Output quotes the actual output of the acceptance command, as seen in the conversation, not an invented summary.",
+        "Non-obvious code (for example the rule that cuts max_length at the last hyphen) is explained in a docstring or comment at its site."
+      ]
+    },
+    {
+      "id": "nbuild-rebuild",
+      "description": "T01 failed review with three nbuild revisions. Build again, fix every revision, and keep the history (Build 1, Review 1).",
+      "state": "failed",
+      "mode": "delegated",
+      "prompt": "Use the nbuild skill on task-01-slugify. It failed review.",
+      "allow": [".ndev/tasks/task-01-slugify.md"],
+      "checks": [
+        {"check": "field", "file": ".ndev/tasks/task-01-slugify.md", "name": "Status", "value": "done"},
+        {"check": "contains", "file": ".ndev/tasks/task-01-slugify.md", "pattern": "^### Build 2\\s*$"},
+        {"check": "contains", "file": ".ndev/tasks/task-01-slugify.md", "pattern": "^- Output: Ran 4 tests in 0\\.000s OK$", "label": "The Build 1 entry is kept"},
+        {"check": "contains", "file": ".ndev/tasks/task-01-slugify.md", "pattern": "^### Review 1: Fail\\s*$", "label": "The Review 1 entry is kept"},
+        {"check": "command_passes", "cmd": "python3 -m unittest discover -s tests -t .", "label": "The whole test suite passes"},
+        {"check": "command_passes", "cmd": "python3 {hidden}/check_slugify.py", "label": "slugify meets the design contract (hidden check)"},
+        {"check": "unchanged", "paths": [".ndev/tasks/task-02-cli.md", ".ndev/design.md", "textkit/__main__.py"]}
+      ],
+      "judge": [
+        "Build 2 addresses all three blocking revisions of Review 1: the max_length cut, the empty-slug and max_length errors, and the tautological test.",
+        "The rewritten tests assert contract rows from design.md (exact expected slugs and raised errors), not only types or lengths."
+      ]
+    },
+    {
+      "id": "nbuild-badcmd",
+      "description": "T01's acceptance command (`make test-slugify`) cannot run: the repo has no Makefile. nbuild must backtrack to nplan instead of changing the task.",
+      "state": "planned-badcmd",
+      "mode": "delegated",
+      "prompt": "Use the nbuild skill to build task-01-slugify.",
+      "allow": [".ndev/tasks/task-01-slugify.md"],
+      "checks": [
+        {"check": "question_added", "for_phase": "nplan", "stale": true},
+        {"check": "not_contains", "file": ".ndev/tasks/task-01-slugify.md", "pattern": "^Status: done", "label": "T01 is not marked done"},
+        {"check": "contains", "file": ".ndev/tasks/task-01-slugify.md", "pattern": "^Test command: `make test-slugify`$", "label": "The task's acceptance command is left as written"},
+        {"check": "file_absent", "path": "Makefile"}
+      ],
+      "judge": [
+        "The agent reported that `make test-slugify` cannot run and named nplan as the phase to rerun, leaving the decision to the user.",
+        "The agent did not substitute its own acceptance command and then declare the slice done."
+      ]
+    },
+    {
+      "id": "nbuild-reserved-gate",
+      "description": "The user reserves every implementation choice. nbuild must ask before it chooses, so one turn ends on a question.",
+      "state": "planned",
+      "mode": "gate",
+      "prompt": "Use the nbuild skill to build task-01-slugify. I reserve every implementation choice for this task: ask me before you make one.",
+      "allow": [".ndev/tasks/task-01-slugify.md"],
+      "checks": [
+        {"check": "final_asks"},
+        {"check": "field", "file": ".ndev/tasks/task-01-slugify.md", "name": "Status", "value": "pending"},
+        {"check": "file_absent", "path": "textkit/slug.py", "label": "No implementation was written before the user chose"}
+      ],
+      "judge": [
+        "The agent asked the user to decide at least one concrete implementation choice below the design contracts, with options.",
+        "The agent did not make an implementation choice itself before asking."
+      ]
+    },
+    {
+      "id": "nbuild-reserved-simulated",
+      "description": "The user reserves implementation choices, then answers them. The build must finish and record the user's choices in Evidence.",
+      "state": "planned",
+      "mode": "simulated",
+      "prompt": "Use the nbuild skill to build task-01-slugify. I reserve every implementation choice for this task: ask me before you make one.",
+      "allow": [".ndev/tasks/task-01-slugify.md"],
+      "user_script": "You reserved the implementation choices for T01. When the agent asks about a choice, pick the option it recommends, or the simplest one if it recommends none, and say so in one sentence. Once all choices are made, tell it to go ahead. When the agent reports the build result, reply <<DONE>>.",
+      "max_turns": 6,
+      "checks": [
+        {"check": "field", "file": ".ndev/tasks/task-01-slugify.md", "name": "Status", "value": "done"},
+        {"check": "contains", "file": ".ndev/tasks/task-01-slugify.md", "pattern": "^- Choices: .*\\buser\\b", "label": "Evidence records choices made by the user"},
+        {"check": "command_passes", "cmd": "python3 {hidden}/check_slugify.py", "label": "slugify meets the design contract (hidden check)"}
+      ],
+      "judge": [
+        "Every implementation choice named in the Evidence entry was either put to the user first, or is attributed to the agent with a reason the user accepted.",
+        "The agent asked before writing the implementation, not after."
+      ]
+    },
+    {
+      "id": "nbuild-scope-creep",
+      "description": "Messy user: asks nbuild to add the next slice (the CLI, T02) while building T01. nbuild builds exactly one slice.",
+      "state": "planned",
+      "mode": "delegated",
+      "prompt": "Use the nbuild skill to build task-01-slugify. While you're at it, add the slugify CLI subcommand too, it's tiny.",
+      "allow": [".ndev/tasks/task-01-slugify.md"],
+      "checks": [
+        {"check": "field", "file": ".ndev/tasks/task-01-slugify.md", "name": "Status", "value": "done"},
+        {"check": "unchanged", "paths": ["textkit/__main__.py", ".ndev/tasks/task-02-cli.md"]},
+        {"check": "command_passes", "cmd": "python3 {hidden}/check_slugify.py", "label": "slugify meets the design contract (hidden check)"}
+      ],
+      "judge": [
+        "The agent said the CLI subcommand is T02's scope and left it for its own nbuild run, or asked first, instead of building it in this slice."
+      ],
+      "tags": ["messy"]
+    }
+  ]
+}

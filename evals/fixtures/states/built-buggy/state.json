@@ -1,0 +1,4 @@
+{
+  "extends": "built",
+  "description": "Like built, but slugify hard-cuts at max_length (splits words, can end with a hyphen), returns \"\" instead of raising, and the length tests are tautological. Evidence still claims a pass."
+}

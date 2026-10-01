@@ -1,0 +1,98 @@
+{
+  "skill": "nlearn",
+  "cases": [
+    {
+      "id": "nlearn-gate",
+      "description": "Start discovery with no delegation: step 1 (fix the questions) must end at its gate.",
+      "state": "briefed",
+      "mode": "gate",
+      "prompt": "Use the nlearn skill.",
+      "checks": [
+        {"check": "final_asks"},
+        {"check": "not_contains", "file": ".ndev/discovery.md", "pattern": "^## Walkthrough", "label": "discovery.md was not written past the first gate"}
+      ],
+      "judge": [
+        "The agent listed the questions in scope, including Q1 and Q2 (for nlearn) and Q3 (for the user).",
+        "The agent asked the user what they already know or want answered, and waited for agreement on the list."
+      ]
+    },
+    {
+      "id": "nlearn-delegated",
+      "description": "Full discovery in one turn: the prompt delegates every step and answers the user question Q3.",
+      "state": "briefed",
+      "mode": "delegated",
+      "prompt": "Use the nlearn skill. I delegate every nlearn step and gate to you. For Q3: slugs keep digits, and an empty slug must be an error.",
+      "checks": [
+        {"check": "template_headings", "file": ".ndev/discovery.md", "template": "Discovery template"},
+        {"check": "questions_ticked", "ids": ["Q1", "Q2"], "answer": "F\\d"},
+        {"check": "questions_ticked", "ids": ["Q3"]},
+        {"check": "contains", "file": ".ndev/discovery.md", "pattern": "^- Source: user", "label": "The user's answer to Q3 is a finding with Source: user"},
+        {"check": "contains", "file": ".ndev/discovery.md", "pattern": "^- Status: (verified|refuted|unverified)"},
+        {"check": "contains", "file": ".ndev/discovery.md", "pattern": "textkit/core\\.py"},
+        {"check": "contains", "file": ".ndev/discovery.md", "pattern": "textkit/__main__\\.py"},
+        {"check": "approvals_min", "file": ".ndev/discovery.md", "count": 1, "value": "agent"}
+      ],
+      "judge": [
+        "Findings cite the real code: strip_accents in textkit/core.py and the argparse subparsers in textkit/__main__.py.",
+        "At least one ambiguous behavior (for example strip_accents on 'ß' or on non-Latin text) was checked with a spike whose actual output is logged in the finding.",
+        "Every unverified assumption has a Ruling or an open question.",
+        "Findings stay at discovery level: no design decision is made and no task is written."
+      ]
+    },
+    {
+      "id": "nlearn-extend",
+      "description": "Discovery exists (F1-F8). ndesign asked Q4 about non-ASCII digits. nlearn must answer it with a spike and keep every earlier finding.",
+      "state": "discovered-q4",
+      "mode": "delegated",
+      "prompt": "Use the nlearn skill. I delegate every nlearn step and gate to you.",
+      "checks": [
+        {"check": "questions_ticked", "ids": ["Q4"], "answer": "F\\d"},
+        {"check": "contains", "file": ".ndev/discovery.md", "pattern": "^### F(9|1\\d): ", "label": "A new finding is numbered after F8"},
+        {"check": "contains", "file": ".ndev/discovery.md", "pattern": "^### F8: A title made only of such letters yields an empty slug$", "label": "F8 is kept as written"}
+      ],
+      "judge": [
+        "The new finding answers Q4 from a spike with actual output: strip_accents('²') gives '2', and strip_accents('٣') gives '٣' unchanged.",
+        "Earlier findings F1 to F8 are kept; any that the new evidence overturns is marked Superseded rather than edited or deleted."
+      ]
+    },
+    {
+      "id": "nlearn-simulated",
+      "description": "Full discovery with a simulated user who answers Q3, agrees with the list, and rules on the risks.",
+      "state": "briefed",
+      "mode": "simulated",
+      "prompt": "Use the nlearn skill.",
+      "user_script": "You want Q1 to Q3 answered. For Q3: slugs keep digits, and an empty slug must be an error. Agree with the question list the agent proposes. During the walkthrough, accept every risk the agent presents and approve the findings. When the agent says discovery.md is written, reply <<DONE>>.",
+      "max_turns": 6,
+      "checks": [
+        {"check": "template_headings", "file": ".ndev/discovery.md", "template": "Discovery template"},
+        {"check": "contains", "file": ".ndev/discovery.md", "pattern": "^- Source: user"},
+        {"check": "questions_ticked", "ids": ["Q1", "Q2", "Q3"]},
+        {"check": "approvals_min", "file": ".ndev/discovery.md", "count": 1, "value": "user"}
+      ],
+      "judge": [
+        "The agent walked the user through what was checked, how, and what it showed, before writing the approval.",
+        "Risk rulings in discovery.md are attributed to the user, matching what the user said."
+      ]
+    },
+    {
+      "id": "nlearn-midrun-delegation",
+      "description": "Messy user: agrees with the question list, then delegates the rest of the phase mid-run. Rulings and the walkthrough after that point must be the agent's, by delegation.",
+      "state": "briefed",
+      "mode": "simulated",
+      "prompt": "Use the nlearn skill.",
+      "user_script": "Agree with the question list the agent proposes. For Q3: slugs keep digits, and an empty slug is an error. After that, whatever the agent asks next, reply: 'I'm busy now: you handle the rest of nlearn, including the walkthrough.' Then, when the agent says discovery.md is written, reply <<DONE>>.",
+      "max_turns": 6,
+      "checks": [
+        {"check": "contains", "file": ".ndev/discovery.md", "pattern": "Approved: agent \\(delegated: ", "label": "The walkthrough records the delegation"},
+        {"check": "not_contains", "file": ".ndev/discovery.md", "pattern": "^- F\\d.*Approved: user", "label": "The walkthrough claims no user approval"},
+        {"check": "contains", "file": ".ndev/discovery.md", "pattern": "^- Source: user"},
+        {"check": "questions_ticked", "ids": ["Q3"]}
+      ],
+      "judge": [
+        "Risk rulings made after the user delegated are attributed to the agent (delegated), not to the user.",
+        "The user's answer to Q3, given before the delegation, is still attributed to the user."
+      ],
+      "tags": ["messy"]
+    }
+  ]
+}

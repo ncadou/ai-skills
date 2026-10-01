@@ -1,0 +1,4 @@
+{
+  "extends": "designed",
+  "description": "nplan done: plan.md with T01 (slugify function) and T02 (CLI), both pending."
+}

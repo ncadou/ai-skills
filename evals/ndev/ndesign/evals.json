@@ -1,0 +1,96 @@
+{
+  "skill": "ndesign",
+  "cases": [
+    {
+      "id": "ndesign-gate",
+      "description": "Start a design with no delegation: step 1 (process) must end at its gate.",
+      "state": "discovered",
+      "mode": "gate",
+      "prompt": "Use the ndesign skill.",
+      "checks": [
+        {"check": "final_asks"},
+        {"check": "not_contains", "file": ".ndev/design.md", "pattern": "^## Interfaces & Skeletons", "label": "No skeletons were written past the first gate"}
+      ],
+      "judge": [
+        "The agent described the end-to-end process (actors, triggers, main and failure scenarios), with each scenario citing the objectives it serves.",
+        "The agent asked the user to approve the process before moving on to decisions.",
+        "The agent did not record any design decision as chosen."
+      ]
+    },
+    {
+      "id": "ndesign-control-seed",
+      "description": "brief.md § Control delegates every ndesign decision and gate, so one turn should produce the whole design, with each delegation recorded.",
+      "state": "discovered-delegated",
+      "mode": "delegated",
+      "prompt": "Use the ndesign skill.",
+      "checks": [
+        {"check": "template_headings", "file": ".ndev/design.md", "template": "Design template"},
+        {"check": "approvals_min", "file": ".ndev/design.md", "count": 4, "value": "agent"},
+        {"check": "contains", "file": ".ndev/design.md", "pattern": "^- Decided by: agent \\(delegated: [^)]+\\)"},
+        {"check": "not_contains", "file": ".ndev/design.md", "pattern": "^- Decided by: user", "label": "No decision claims the user"},
+        {"check": "contains", "file": ".ndev/design.md", "pattern": "^```python"},
+        {"check": "contains", "file": ".ndev/design.md", "pattern": "Serves: .*O1"},
+        {"check": "contains", "file": ".ndev/design.md", "pattern": "Serves: .*O2"}
+      ],
+      "judge": [
+        "Every decision lists options with tradeoffs, cites evidence (F-numbers or file paths), and gives a recommendation and a choice.",
+        "The design states what happens for an empty slug and how max_length cuts a long slug.",
+        "Skeletons state parameter types, return types, and failure modes, and contain no implementation logic.",
+        "Every component cites its reference pattern (for example F1 or F2) or states that none exists."
+      ]
+    },
+    {
+      "id": "ndesign-conflict",
+      "description": "brief.md adds O3 (keep non-Latin letters), which contradicts O1 (ASCII slugs) and the non-goals. ndesign must backtrack to nstart.",
+      "state": "discovered-conflict",
+      "mode": "delegated",
+      "prompt": "Use the ndesign skill. I delegate every ndesign decision and gate to you.",
+      "checks": [
+        {"check": "question_added", "for_phase": "nstart", "stale": true},
+        {"check": "not_contains", "file": ".ndev/design.md", "pattern": "^## Interfaces & Skeletons", "label": "No skeletons were written around the conflict"}
+      ],
+      "judge": [
+        "The agent identified that O3 conflicts with O1 (lowercase ASCII) or with the no-transliteration non-goal.",
+        "The agent stopped and named nstart as the phase to rerun, instead of choosing between the objectives itself."
+      ]
+    },
+    {
+      "id": "ndesign-simulated",
+      "description": "Full design with a simulated user who approves each step and makes each decision.",
+      "state": "discovered",
+      "mode": "simulated",
+      "prompt": "Use the ndesign skill.",
+      "user_script": "You own the design. Approve the process if it covers both a library call and the command line. For decisions: non-ASCII text reuses strip_accents and treats anything else outside [a-z0-9] as a separator; max_length cuts at the last hyphen, hard-cutting a first word that is too long; an empty slug raises ValueError. For any other decision, take the agent's recommendation. Approve the boundaries and the skeletons when shown. When the agent says design.md is written and names the next phase, reply <<DONE>>.",
+      "max_turns": 10,
+      "checks": [
+        {"check": "template_headings", "file": ".ndev/design.md", "template": "Design template"},
+        {"check": "approvals_min", "file": ".ndev/design.md", "count": 4, "value": "user"},
+        {"check": "contains", "file": ".ndev/design.md", "pattern": "^- Decided by: user", "min": 3}
+      ],
+      "judge": [
+        "The recorded choices match the user's: reuse strip_accents, cut at the last hyphen, ValueError for an empty slug.",
+        "The agent waited for the user's approval at each step (process, decisions, boundaries, skeletons) before starting the next."
+      ]
+    },
+    {
+      "id": "ndesign-change-of-mind",
+      "description": "Messy user: approves the decisions, then reverses the empty-slug decision at the next step. The old decision must be kept and superseded, and the new one must pass the decision gate.",
+      "state": "discovered",
+      "mode": "simulated",
+      "prompt": "Use the ndesign skill.",
+      "user_script": "You own the design. Approve the process if it covers both a library call and the command line. For decisions: non-ASCII text reuses strip_accents and treats anything else outside [a-z0-9] as a separator; max_length cuts at the last hyphen, hard-cutting a first word that is too long; an empty slug raises ValueError. Take the agent's recommendation for anything else, and approve the decision list. At the next step, before approving anything else, say: 'Wait, I changed my mind on the empty slug: return an empty string instead of raising.' After that, approve each step when shown. When the agent says design.md is written, reply <<DONE>>.",
+      "max_turns": 12,
+      "checks": [
+        {"check": "contains", "file": ".ndev/design.md", "pattern": "Superseded by D\\d+", "label": "A decision is marked Superseded"},
+        {"check": "approvals_min", "file": ".ndev/design.md", "count": 4, "value": "user"},
+        {"check": "template_headings", "file": ".ndev/design.md", "template": "Design template"}
+      ],
+      "judge": [
+        "The first empty-slug decision (ValueError) is kept and marked Superseded by a new decision that returns an empty string; it is not silently edited or deleted.",
+        "The skeletons and contract examples follow the new choice: an empty slug returns an empty string.",
+        "The agent took the changed decision through the decision gate (showed it and got approval) before building on it."
+      ],
+      "tags": ["messy"]
+    }
+  ]
+}

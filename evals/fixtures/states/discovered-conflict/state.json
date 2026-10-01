@@ -1,0 +1,4 @@
+{
+  "extends": "discovered",
+  "description": "discovered, but brief.md holds two objectives that contradict each other (keep non-ASCII letters vs pure-ASCII slugs)."
+}

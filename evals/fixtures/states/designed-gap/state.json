@@ -1,0 +1,4 @@
+{
+  "extends": "discovered",
+  "description": "Like designed, but D3 has no Decided by line and the slugify subcommand has no skeleton."
+}

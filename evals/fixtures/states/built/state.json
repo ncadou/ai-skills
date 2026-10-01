@@ -1,0 +1,4 @@
+{
+  "extends": "planned",
+  "description": "nbuild done on T01: a correct slugify with tests, left uncommitted; T01 is done with one Evidence entry."
+}
