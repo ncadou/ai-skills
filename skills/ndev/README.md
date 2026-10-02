@@ -37,9 +37,22 @@ Downstream items cite the IDs they rest on (`Serves: O1`, `Evidence: F3`, `Imple
 - [ ] Q3: <question> (from <phase>/<user|agent>, for <phase|user>)
 ```
 
-`from` records who asked, `for` who must answer. The phase where the question is answered ticks it and points to the answer: `- [x] Q3: … → F4`. The answer's `Source` or `Decided by` line records who answered.
+`from` records who asked, `for` who must answer. Backtrack questions add `stale: <artifacts or none>` at the end. Each entry is one line in exactly this format, with no added notes: details belong in the artifact that answers it.
 
-**Task status.** Lives only in the task file: `pending` → `done` (`nbuild`) → `pass` | `fail` (`nreview`) → `accepted` (optional, user or delegated agent). On `fail`, `nbuild` builds again and sets `done`. Builds and reviews append entries to the task file, so the history stays. The user can overrule a verdict, with a reason.
+The phase where the question is answered ticks it and appends a pointer to the answer, keeping the rest of the line as written:
+
+```markdown
+- [x] Q3: <question> (from nstart/agent, for nlearn) → F4
+```
+
+The answer's `Source` or `Decided by` line records who answered. When the user declines a question `for user` ("no preference", "you decide"), tick it with a pointer to a new question, and append that question for the phase that will settle it:
+
+```markdown
+- [x] Q3: <question> (from nstart/agent, for user) → Q7
+- [ ] Q7: <question> (from nstart/agent, for ndesign)
+```
+
+**Task status.** Lives only in the task file: `pending` → `done` (`nbuild`) → `pass` | `fail` (`nreview`) → `accepted` (optional, user or delegated agent). On `fail`, `nbuild` builds again and sets `done`; when the user asks `nreview` for the fixes in the same session, it hands off to `nbuild` explicitly, then reviews again. Builds and reviews append entries to the task file, so the history stays. The user can overrule a verdict, with a reason.
 
 **Skipping phases.** Every phase is optional. Each skill uses whatever upstream artifacts exist and asks the user for what is missing. `nstart` suggests which phases to skip and the user decides; the brief records both. `nplan` without a design is limited to work that changes no contract.
 

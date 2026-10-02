@@ -7,7 +7,7 @@ There are no trigger evals: every `ndev` skill sets `disable-model-invocation: t
 ## Quick start
 
 ```sh
-python3 evals/run.py list                          # 31 cases
+python3 evals/run.py list                          # 32 cases
 python3 evals/run.py run --skill nbuild --runs 1   # one skill, one run per case
 python3 evals/run.py run --tag messy               # only the messy-user cases
 python3 evals/run.py run                           # everything, 3 runs per case
@@ -41,10 +41,10 @@ Labels then read `<skills>@<model>`, for example `with_skill@glm-5.3-flash`. The
 
 ## How a run works
 
-1. **Fixture.** The toy repo `fixtures/repo/` (`textkit`, a small Python package) is copied to `/tmp/ndev-evals/`. Then the case's state is overlaid on it, and it gets its own git repo.
+1. **Fixture.** The toy repo `fixtures/repo/` (`textkit`, a small Python package) is copied to `/tmp/ndev-work/run-<random>/work`. Then the case's state is overlaid on it, and it gets its own git repo. The agent sees this path, so it names no case and no mode: a path such as `nstart-simulated-…` once led an agent to treat the run as a test and record delegations nobody gave.
 2. **Isolation.** opencode gets a fresh `HOME` holding only the skills under test. Globally installed skills, `AGENTS.md`, plugins, and MCP servers stay out. The config copies your `provider` block and links `auth.json`, so your models still work.
-3. **Agent.** `opencode run --format json` gets the case prompt. In `simulated` mode, a second model plays the user and answers from the case's `user_script` until it replies `<<DONE>>` or `max_turns` is reached.
-4. **Grading.** Script checks run on the before and after trees. Then the judge grades the case's `judge` expectations from the transcript, the artifacts, and the diff. In simulated mode it also grades **fidelity**: did the simulated user keep to its script? A run where it did not is a broken test, not a skill failure. It is left out of the pass rates and listed in the notes as `off script (excluded)`.
+3. **Agent.** `opencode run --format json` gets the case prompt. In `simulated` mode, a second model plays the user and answers from the case's `user_script` until it replies `<<DONE>>` or `max_turns` is reached. Its prompt (`prompts/simulated_user.md`) names the phase under test and forbids asking for another phase.
+4. **Grading.** Script checks run on the before and after trees. Then the judge grades the case's `judge` expectations from the transcript, the artifacts, and the diff. In simulated mode, **fidelity** asks whether the simulated user kept to its script. Two results answer it: the judge's verdict, and a script-level guard that fails when a user message after the first names another phase skill and the agent loads that skill in the same turn. When either fails, the run is a broken test, not a skill failure. It is left out of the pass rates and listed in the notes as `off script (excluded)`.
 
 Permissions are all `allow`, except that file tools cannot leave the work tree (`external_directory: deny`). Bash is **not** sandboxed: the agent runs commands as you. The prompts only ever point it at the fixture.
 
@@ -83,11 +83,12 @@ Real users go off the happy path. Cases tagged `messy` script one specific devia
 | --- | --- | --- |
 | `nstart-partial-delegation` | delegates one step (non-goals) | record that delegation on that section only |
 | `nlearn-midrun-delegation` | delegates the rest of the phase mid-run | attribute later rulings to the agent, earlier answers to the user |
+| `nlearn-defer-question` | declines a question asked of them | tick it `→ Q<new>` and re-open it for the phase that will settle it |
 | `ndesign-change-of-mind` | reverses an approved decision | keep it, mark it Superseded, and gate the new one |
 | `nplan-reject-then-approve` | rejects the first plan | revise, and record approval only for the revision |
 | `nbuild-scope-creep` | asks for the next slice too | build exactly one slice |
 | `nreview-overrule` | accepts after a Fail | record `Overruled by user: <reason>` |
-| `nreview-chain-request` | asks the reviewer to fix the code | (probe, also tagged `probe`) keep the history traceable; the skills have no rule for this yet |
+| `nreview-chain-request` | asks the reviewer to fix the code | hand off explicitly: load `nbuild`, then review again |
 
 The messiness is in the script, never left to the simulated user model. A weak simulated user makes runs noisy at random; the fidelity check catches that.
 
@@ -125,7 +126,7 @@ Every case gets these default checks:
 - `questions_format`: every `questions.md` line parses; ticked ones point to an answer.
 - `ids_unique`, `ids_preserved`: no ID is defined twice, and none disappears.
 
-Cases add their own checks: `field`, `contains`, `not_contains`, `file_exists`, `file_absent`, `unchanged`, `template_headings` (headings from the SKILL.md template itself), `approvals_min`, `question_added`, `questions_ticked`, `final_asks`, and `command_passes` (runs a command on a copy of the final tree, for example the hidden slugify contract check). See `harness/checks.py`.
+Cases add their own checks: `field`, `contains`, `not_contains`, `file_exists`, `file_absent`, `unchanged`, `template_headings` (headings from the SKILL.md template itself), `approvals_min`, `question_added`, `questions_ticked`, `final_asks`, `no_tool_call` (no tool call whose input matches a pattern), `not_written_in_turn` (no file tool wrote a path in a given turn, for example the brief before the user's first reply), and `command_passes` (runs a command on a copy of the final tree, for example the hidden slugify contract check). See `harness/checks.py`.
 
 Prefer a script check when the answer is objective. Use a `judge` expectation for meaning: is the review finding real, does the finding quote real spike output.
 
@@ -155,6 +156,7 @@ Read transcripts, not only scores. Wasted steps and misread rules show up there 
 ## Iterating
 
 - `run` skips runs that already have `metrics.json`, so a rerun with the same `--name` resumes.
+- After a network or provider outage, `run ... --name <same> --retry-failed` redoes runs that ended in `error`, `timeout`, or `user_error`, and `grade <iteration> --failed-only` re-grades runs whose judge call failed. The simulated user and the judge retry with backoff first. A failed call never counts as a result: it never passes for `<<DONE>>`, and never as a failed expectation. Such runs are left out of the pass rates and listed in the notes.
 - After editing checks or judge expectations, re-grade without rerunning the agent: `python3 evals/run.py grade evals-workspace/iteration-<n>`.
 - To add a case, add it to `ndev/<skill>/evals.json`. If it needs a new state, add `fixtures/states/<name>/`. Then run the unit tests, which check every state against the same format checks and SKILL.md templates:
 
@@ -164,4 +166,4 @@ Read transcripts, not only scores. Wasted steps and misread rules show up there 
 
 ## Cost
 
-One full pass is 31 cases × 3 runs = 93 agent runs per configuration, plus simulated-user and judge calls; each `--baseline` or `--also-model` multiplies that. In smoke tests an agent run used 20k–470k tokens and took 30 s–5 min; simulated cases cost the most. Use `--skill`, `--case`, and `--runs 1` while iterating, and `--jobs` to run in parallel (default 4).
+One full pass is 32 cases × 3 runs = 96 agent runs per configuration, plus simulated-user and judge calls; each `--baseline` or `--also-model` multiplies that. In smoke tests an agent run used 20k–470k tokens and took 30 s–5 min; simulated cases cost the most. Use `--skill`, `--case`, and `--runs 1` while iterating, and `--jobs` to run in parallel (default 4).

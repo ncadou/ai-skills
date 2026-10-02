@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 Build exactly one slice. Implement only the named task file; leave the next slice and the verdict to `nreview`.
 
-Implementation choices below the design contracts are yours, unless `.ndev/brief.md` § Control or the user reserves them; then ask before you choose. The user can change this at any time; record the change in the build's Evidence entry.
+Implementation choices below the design contracts are yours, unless `.ndev/brief.md` § Control or the user reserves them; then ask before you choose. Only the user changes this, at any time and in their own words; record each change in the build's Evidence entry.
 
 ## Inputs
 
@@ -38,7 +38,7 @@ Done when the acceptance command passes by observed output, the Evidence entry i
 
 ## Backtrack
 
-When a trigger below fires, stop. Append each gap to `.ndev/questions.md` as `- [ ] Q<n>: <gap> (from nbuild/<user|agent>, for <phase>) stale: <artifacts or none>`, listing the downstream artifacts that rerun may make stale. Name the phase for the user to run. Leave the contract unchanged; the user decides.
+When a trigger below fires, stop. Append each gap to `.ndev/questions.md` as `- [ ] Q<n>: <gap> (from nbuild/<user|agent>, for <phase>) stale: <artifacts or none>`, listing the downstream artifacts that rerun may make stale. Each ledger entry is one line in exactly the format shown, with no added notes; details go in the artifact that answers it. Name the phase for the user to run. Leave the contract unchanged; the user decides.
 
 - A contract is wrong or cannot be implemented as written: `ndesign`.
 - The task's scope, dependencies, or acceptance command are wrong or unrunnable: `nplan`.

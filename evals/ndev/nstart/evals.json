@@ -64,7 +64,8 @@
         {"check": "contains", "file": ".ndev/brief.md", "pattern": "^- O1: "},
         {"check": "contains", "file": ".ndev/brief.md", "pattern": "^- O2: "},
         {"check": "contains", "file": ".ndev/brief.md", "pattern": "(?i)(third-party|dependenc)", "label": "The no-dependency non-goal is recorded"},
-        {"check": "not_contains", "file": ".ndev/brief.md", "pattern": "(?i)^- .*: (agent decides|gate waived)", "label": "Control holds no delegation"}
+        {"check": "not_contains", "file": ".ndev/brief.md", "pattern": "(?i)^- .*: (agent decides|gate waived)", "label": "Control holds no delegation"},
+        {"check": "not_written_in_turn", "turn": 1, "path": ".ndev/brief.md", "label": "brief.md was not written before the user's first reply"}
       ],
       "judge": [
         "The brief's objectives and non-goals match what the user said.",
@@ -82,10 +83,11 @@
       "checks": [
         {"check": "contains", "file": ".ndev/brief.md", "pattern": "(?i)^Approved: agent \\(delegated: [^)]*non-goal", "label": "Non-goals record the delegation"},
         {"check": "approvals_min", "file": ".ndev/brief.md", "count": 2, "value": "user"},
-        {"check": "template_headings", "file": ".ndev/brief.md", "template": "Brief template"}
+        {"check": "template_headings", "file": ".ndev/brief.md", "template": "Brief template"},
+        {"check": "not_written_in_turn", "turn": 1, "path": ".ndev/brief.md", "label": "brief.md was not written before the user's first reply"}
       ],
       "judge": [
-        "Only the Non-goals section is attributed to the agent (delegated); the sections the user approved say Approved: user.",
+        "Only the Non-goals section is attributed to the agent (delegated); every other Approved line says user. (The template's `- nbuild: run` line carries no attribution by design.)",
         "The agent did not treat the one delegation as covering other steps."
       ],
       "tags": ["messy"]

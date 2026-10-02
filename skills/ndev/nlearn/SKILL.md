@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 Run a discovery investigation, so that both you and the user learn before anyone designs or decides. Produce only `.ndev/discovery.md` and entries in `.ndev/questions.md`; leave design to `ndesign`, tasks to `nplan`, and code to `nbuild`.
 
-Follow `.ndev/brief.md` § Control when it exists. The user can delegate a step or waive a gate at any time; record it on the `Approved:` line of the section it affects.
+Steps 1 and 4 end at a gate: present the result, then stop and wait for the user's answer before the next step. Follow `.ndev/brief.md` § Control when it exists. The user can delegate a step or waive a gate at any time; record it on the `Approved:` line of the section it affects. Only the user creates a delegation, in § Control or in their own words; every other approval you record is `user`.
 
 ## Inputs
 
@@ -18,7 +18,7 @@ Follow `.ndev/brief.md` § Control when it exists. The user can delegate a step 
 
 ### 1. Fix the questions
 
-List what this run must answer: open questions marked `for nlearn`, plus gaps in the brief's approach. Ask the user what they already know and what they want answered. Append each new question to `.ndev/questions.md` as `- [ ] Q<n>: <question> (from nlearn/<user|agent>, for <phase|user>)`, with the next free number. With no brief and no open questions, derive the list from the user's request.
+List what this run must answer: open questions marked `for nlearn`, plus gaps in the brief's approach. Ask the user what they already know and what they want answered. Append each new question to `.ndev/questions.md` as `- [ ] Q<n>: <question> (from nlearn/<user|agent>, for <phase|user>)`, with the next free number. Each ledger entry is one line in exactly the format shown, with no added notes; details go in the artifact that answers it. With no brief and no open questions, derive the list from the user's request.
 
 Done when every question in scope has an ID, and the user agrees with the list.
 
@@ -42,7 +42,7 @@ Done when the user has reviewed every new finding and ruled on every risk, or ha
 
 ### 5. Write `.ndev/discovery.md`
 
-Write or extend the artifact using the template below. In `.ndev/questions.md`, tick each question answered and point to its finding: `- [x] Q<n>: … → F<n>`. Report open risks to the user; the human runs the next phase, usually `ndesign`.
+Write or extend the artifact using the template below. In `.ndev/questions.md`, tick each question answered and append the pointer to its finding, keeping the rest of the line as written: `- [x] Q<n>: <question> (from <phase>/<user|agent>, for <nlearn|user>) → F<n>`. When the user declines a question `for user` ("no preference", "you decide"), tick it `→ Q<new>` and append `Q<new>` for the phase that will settle it. Report open risks to the user; the human runs the next phase, usually `ndesign`.
 
 Done when every question from step 1 is ticked or still open with a reason, and every section of `.ndev/discovery.md` is filled.
 

@@ -170,6 +170,78 @@ class IdsTest(_TreeTest):
         self.assertTrue(self.run_one({"check": "ids_preserved"}).passed)
 
 
+class ToolCallTest(unittest.TestCase):
+    """Checks that read the transcript's tool calls."""
+
+    def _ctx(self) -> RunContext:
+        events = [
+            {"type": "tool_use", "part": {"tool": "skill", "state": {"input": {"name": "nbuild"}}}},
+            {"type": "tool_use", "part": {"tool": "bash", "state": {"input": {"command": "python3 spike.py"}}}},
+        ]
+        tree = Path(tempfile.gettempdir())
+
+        return RunContext(case=_case(skill="nreview"), config="with_skill", before=tree, after=tree,
+                          changes=diff_trees(tree / "missing", tree / "missing"), turns=[events])
+
+    def test_no_tool_call(self) -> None:
+        fn, _ = checks.CHECKS["no_tool_call"]
+        self.assertFalse(fn(self._ctx(), tool="bash", pattern="python")[0])
+        self.assertTrue(fn(self._ctx(), tool="bash", pattern="pytest")[0])
+
+    def test_skill_loaded_by_name(self) -> None:
+        fn, _ = checks.CHECKS["skill_loaded"]
+        self.assertFalse(fn(self._ctx())[0])
+        self.assertTrue(fn(self._ctx(), name="nbuild")[0])
+
+    def test_not_written_in_turn(self) -> None:
+        fn, _ = checks.CHECKS["not_written_in_turn"]
+        write = {"type": "tool_use", "part": {"tool": "write", "state": {"input": {"filePath": "/w/.ndev/brief.md"}}}}
+        read = {"type": "tool_use", "part": {"tool": "read", "state": {"input": {"filePath": "/w/.ndev/brief.md"}}}}
+        ctx = self._ctx()
+        ctx.turns = [[read], [write]]
+        self.assertTrue(fn(ctx, turn=1, path=".ndev/brief.md")[0])
+        self.assertFalse(fn(ctx, turn=2, path=".ndev/brief.md")[0])
+        self.assertTrue(fn(ctx, turn=2, path=".ndev/design.md")[0])
+
+
+def _skill_call(name: str) -> dict:
+    """A ``skill`` tool call event."""
+    return {"type": "tool_use", "part": {"tool": "skill", "state": {"input": {"name": name}}}}
+
+
+class FidelityGuardTest(unittest.TestCase):
+    """The script-level guard flags a simulated user that asks for another phase."""
+
+    def _guard(self, messages: list[str], turns: list[list[dict]], mode: str = "simulated") -> bool | None:
+        tree = Path(tempfile.gettempdir())
+        ctx = RunContext(case=_case(skill="ndesign", mode=mode), config="with_skill", before=tree, after=tree,
+                         changes=diff_trees(tree / "missing", tree / "missing"), turns=turns, messages=messages)
+        result = checks.fidelity_guard(ctx)
+        self.assertEqual(result.kind, "fidelity")
+
+        return result.passed
+
+    def test_request_followed_by_load_fails(self) -> None:
+        turns = [[_skill_call("ndesign")], [_skill_call("nplan")]]
+        self.assertFalse(self._guard(["Use the ndesign skill.", "Approved. Proceed to nplan."], turns))
+
+    def test_mention_without_load_passes(self) -> None:
+        turns = [[_skill_call("ndesign")], []]
+        self.assertTrue(self._guard(["Use the ndesign skill.", "Approved; nplan can wait."], turns))
+
+    def test_load_without_mention_passes(self) -> None:
+        # The agent went ahead on its own: a skill failure, not the user's.
+        turns = [[_skill_call("ndesign")], [_skill_call("nplan")]]
+        self.assertTrue(self._guard(["Use the ndesign skill.", "Approved."], turns))
+
+    def test_own_skill_and_first_message_are_ignored(self) -> None:
+        turns = [[_skill_call("nplan")], [_skill_call("ndesign")]]
+        self.assertTrue(self._guard(["Use ndesign, then nplan.", "Go on with ndesign."], turns))
+
+    def test_not_simulated(self) -> None:
+        self.assertIsNone(self._guard(["Use the ndesign skill."], [[]], mode="gate"))
+
+
 class TemplateTest(unittest.TestCase):
     """template_patterns reads the SKILL.md templates."""
 

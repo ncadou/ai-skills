@@ -8,8 +8,10 @@ Deltas compare like with like:
 - the skill against each baseline, with the same agent model;
 - the primary agent model against each other model, both with the skill.
 
-Runs where the simulated user went off script (fidelity failed) are left out
-of the pass rates and listed in the notes: they say nothing about the skill.
+Runs that say nothing about the skill are left out of the pass rates and
+listed in the notes: the simulated user went off script (fidelity failed),
+infrastructure failed (``error``, ``timeout``, ``user_error``), or the judge
+could not grade (``judge_error``; fix with ``grade --failed-only``).
 
 Analyst notes on the expectations themselves, over the fair runs:
 
@@ -25,6 +27,8 @@ import json
 import statistics
 from collections import defaultdict
 from pathlib import Path
+
+from harness.runner import FAILED
 
 __all__ = ["build_report", "deltas"]
 
@@ -122,6 +126,7 @@ def _load(iteration: Path) -> list[dict]:
                 "ended": metrics["ended"],
                 "pass_rate": grading["summary"]["pass_rate"],
                 "off_script": bool(grading["summary"].get("off_script")),
+                "judge_error": bool(grading["summary"].get("judge_error")),
                 "tokens": metrics["tokens"],
                 "cost": metrics["cost"],
                 "duration_s": metrics["duration_s"],
@@ -137,28 +142,37 @@ def _stats(runs: list[dict]) -> dict:
     if not runs:
         return {}
 
-    rates = [r["pass_rate"] for r in runs if not r["off_script"]]
+    rates = [r["pass_rate"] for r in runs if _fair(r)]
 
     return {
         "runs": len(runs),
-        "off_script": len(runs) - len(rates),
+        "off_script": sum(1 for r in runs if r["off_script"]),
+        "excluded": len(runs) - len(rates),
         "pass_rate": round(statistics.fmean(rates), 3) if rates else None,
         "stddev": round(statistics.stdev(rates), 3) if len(rates) > 1 else 0.0,
         "tokens": round(statistics.fmean(r["tokens"] for r in runs)),
         "cost": round(statistics.fmean(r["cost"] for r in runs), 4),
         "duration_s": round(statistics.fmean(r["duration_s"] for r in runs), 1),
-        "errors": sum(1 for r in runs if r["ended"] in ("error", "timeout")),
+        "errors": sum(1 for r in runs if r["ended"] in FAILED),
     }
+
+
+def _fair(run: dict) -> bool:
+    """True when a run tells something about the skill (see the module docstring)."""
+    return not (run["off_script"] or run["judge_error"] or run["ended"] in FAILED)
 
 
 def _notes(runs: list[dict], pairs: list[tuple[str, str]]) -> list[str]:
     """Analyst notes: off-script and failed runs, then flaky, always-failing, and non-discriminating checks."""
     notes = [f"off script (excluded): {r['case']} [{r['config']}] {r['run']}" for r in runs if r["off_script"]]
-    notes += [f"run {r['ended']}: {r['case']} [{r['config']}] {r['run']}" for r in runs if r["ended"] in ("error", "timeout")]
+    notes += [f"run {r['ended']} (excluded; rerun with --retry-failed): {r['case']} [{r['config']}] {r['run']}"
+              for r in runs if r["ended"] in FAILED]
+    notes += [f"judge error (excluded; re-grade with --failed-only): {r['case']} [{r['config']}] {r['run']}"
+              for r in runs if r["judge_error"]]
 
     outcomes: dict[tuple[str, str, str], list[bool]] = defaultdict(list)
     for run in runs:
-        if run["off_script"]:
+        if not _fair(run):
             continue
 
         for exp in run["expectations"]:
@@ -204,7 +218,7 @@ def _markdown(data: dict) -> str:
         if not stats:
             return "—"
 
-        off = f" ({stats['off_script']} off-script)" if stats["off_script"] else ""
+        off = f" ({stats['excluded']} excluded)" if stats.get("excluded", stats["off_script"]) else ""
         if stats["pass_rate"] is None:
             return f"—{off}"
 

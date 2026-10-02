@@ -21,6 +21,7 @@ import json
 import shutil
 import subprocess
 import tempfile
+import time
 import traceback
 from collections import Counter
 from dataclasses import dataclass
@@ -28,15 +29,23 @@ from pathlib import Path
 
 from harness.agent import EVALUATOR_AGENT, TurnResult, make_home, run_turn
 from harness.cases import SKILLS_DIR, Case
-from harness.checks import RunContext, run_checks
+from harness.checks import RunContext, fidelity_guard, run_checks
 from harness.fixtures import copy_tree, diff_trees, materialize
 from harness.judge import judge_run
 
-__all__ = ["Config", "Settings", "execute_run", "grade_run", "load_context", "rev_config"]
+__all__ = ["FAILED", "Config", "Settings", "execute_run", "grade_run", "load_context", "rev_config", "simulated_reply"]
 
 USER_PROMPT = (Path(__file__).resolve().parent.parent / "prompts" / "simulated_user.md").read_text()
 DONE = "<<DONE>>"
-TMP_ROOT = Path(tempfile.gettempdir()) / "ndev-evals"
+# How a run ends when infrastructure failed; such runs are reruns, not results.
+FAILED = ("error", "timeout", "user_error")
+RETRY_DELAYS_S = (10, 30, 90)
+
+
+class SimulatedUserError(RuntimeError):
+    """The simulated user model failed on every retry."""
+# The agent sees this path: keep it free of case ids and of words like "eval" or "simulated".
+TMP_ROOT = Path(tempfile.gettempdir()) / "ndev-work"
 
 
 @dataclass(frozen=True)
@@ -114,10 +123,11 @@ def execute_run(case: Case, config: Config, run_dir: Path, settings: Settings) -
     """
     run_dir.mkdir(parents=True, exist_ok=True)
     TMP_ROOT.mkdir(parents=True, exist_ok=True)
-    tmp = Path(tempfile.mkdtemp(prefix=f"{case.id}-", dir=TMP_ROOT))
+    tmp = Path(tempfile.mkdtemp(prefix="run-", dir=TMP_ROOT))
     work, home = tmp / "work", tmp / "home"
     turns: list[TurnResult] = []
     messages: list[str] = []
+    user_log: list[str] = []
     ended = "error"
     error = ""
     try:
@@ -147,8 +157,9 @@ def execute_run(case: Case, config: Config, run_dir: Path, settings: Settings) -
                 ended = "max_turns"
                 break
 
-            reply = _simulated_user(case, messages, turns, tmp, settings)
-            if reply is None:
+            reply = simulated_reply(case, messages, [t.texts for t in turns], tmp, settings.user_model)
+            user_log.append(reply)
+            if reply == DONE:
                 ended = "done"
                 break
 
@@ -158,6 +169,8 @@ def execute_run(case: Case, config: Config, run_dir: Path, settings: Settings) -
         _git(work, "add", "-A")
         diff = _git(work, "diff", "--cached", "--no-color", base, "--", ".", ":(exclude).ndev")
         (run_dir / "final.diff").write_text(diff)
+    except SimulatedUserError as exc:
+        ended, error = "user_error", str(exc)
     except Exception:  # noqa: BLE001 - record the failure, keep the iteration going
         error = traceback.format_exc()
     finally:
@@ -178,6 +191,7 @@ def execute_run(case: Case, config: Config, run_dir: Path, settings: Settings) -
         "model": config.model or settings.model,
         "ended": ended,
         "turns": len(turns),
+        "user_replies": user_log,
         "tokens": sum(t.tokens for t in turns),
         "cost": round(sum(t.cost for t in turns), 4),
         "duration_s": round(sum(t.duration_s for t in turns), 1),
@@ -208,12 +222,16 @@ def grade_run(case: Case, config_label: str, run_dir: Path, judge_model: str | N
         (run_dir / "conversation.md").write_text(_conversation(messages, ctx.turns, ended))
 
     results = run_checks(ctx)
+    if case.mode == "simulated":
+        results.append(fidelity_guard(ctx))
     if judge_model and (run_dir / "after").is_dir():
         results += judge_run(case, run_dir, judge_model)
 
     # Fidelity grades the simulated user, not the skill: keep it out of the score.
+    # Off script when any fidelity result failed; unknown when one is missing.
     graded = [r for r in results if r.passed is not None and r.kind != "fidelity"]
     fidelity = [r.passed for r in results if r.kind == "fidelity"]
+    off_script = True if False in fidelity else None if None in fidelity else False
     passed = sum(1 for r in graded if r.passed)
     grading = {
         "expectations": [vars(r) for r in results],
@@ -222,7 +240,8 @@ def grade_run(case: Case, config_label: str, run_dir: Path, judge_model: str | N
             "failed": len(graded) - passed,
             "total": len(graded),
             "pass_rate": round(passed / len(graded), 4) if graded else 0.0,
-            "off_script": None if not fidelity or fidelity[0] is None else not fidelity[0],
+            "off_script": off_script,
+            "judge_error": any(r.evidence.startswith("judge error:") for r in results),
         },
     }
     (run_dir / "grading.json").write_text(json.dumps(grading, indent=2, ensure_ascii=False))
@@ -242,32 +261,50 @@ def load_context(case: Case, config_label: str, run_dir: Path) -> RunContext:
         texts.append(parts[-1] if parts else "")
 
     changes = diff_trees(run_dir / "before", run_dir / "after")
+    messages_path = run_dir / "messages.json"
+    messages = json.loads(messages_path.read_text()) if messages_path.is_file() else []
 
     return RunContext(
         case=case, config=config_label, before=run_dir / "before", after=run_dir / "after",
-        changes=changes, turns=turns, texts=texts,
+        changes=changes, turns=turns, texts=texts, messages=messages,
     )
 
 
-def _simulated_user(case: Case, messages: list[str], turns: list[TurnResult], tmp: Path, settings: Settings) -> str | None:
-    """Ask the user model for the next message; ``None`` when it is done (or fails)."""
+def simulated_reply(case: Case, messages: list[str], texts: list[list[str]], tmp: Path, model: str) -> str:
+    """Ask the user model for its next message, retrying on failure.
+
+    :param case: The case; its ``user_script`` drives the reply.
+    :param messages: User messages so far, one per agent turn.
+    :param texts: Agent text parts, one list per turn.
+    :param tmp: Scratch folder for the user model's isolated home.
+    :param model: User model id.
+    :return: The reply, or exactly ``DONE`` when the user is done.
+    :raises SimulatedUserError: When every attempt fails or answers nothing. A
+        failed call must never pass for ``DONE``: that would end the run early
+        and blame the skill for it.
+    """
     conversation = "\n\n".join(
-        f"USER:\n{m}\n\nAGENT:\n{chr(10).join(t.texts) or '(no text)'}" for m, t in zip(messages, turns)
+        f"USER:\n{m}\n\nAGENT:\n{chr(10).join(t) or '(no text)'}" for m, t in zip(messages, texts)
     )
     home, scratch = tmp / "user-home", tmp / "user-scratch"
     if not home.exists():
         make_home(home, [])
         scratch.mkdir()
 
-    turn = run_turn(
-        USER_PROMPT.format(script=case.user_script, conversation=conversation),
-        workdir=scratch, home=home, model=settings.user_model, agent=EVALUATOR_AGENT, timeout_s=300,
-    )
-    reply = "\n".join(turn.texts).strip()
-    if not turn.ok or not reply or DONE in reply:
-        return None
+    last = ""
+    for delay in (0, *RETRY_DELAYS_S):
+        time.sleep(delay)
+        turn = run_turn(
+            USER_PROMPT.format(skill=case.skill, script=case.user_script, conversation=conversation),
+            workdir=scratch, home=home, model=model, agent=EVALUATOR_AGENT, timeout_s=180,
+        )
+        reply = "\n".join(turn.texts).strip()
+        if turn.ok and reply:
+            return DONE if DONE in reply else reply
 
-    return reply
+        last = f"exit {turn.returncode}, timed out {turn.timed_out}: {turn.stderr[-300:]}"
+
+    raise SimulatedUserError(f"simulated user failed {1 + len(RETRY_DELAYS_S)} times; last: {last}")
 
 
 def _write_turn(run_dir: Path, number: int, turn: TurnResult) -> None:
@@ -305,6 +342,8 @@ def _conversation(messages: list[str], turns: list[list[dict]], ended: str) -> s
 
     if ended == "done":
         out.append(f"## End\n\n### User\n\n{DONE}\n\n(The simulated user ended the run; the agent never saw this.)\n")
+    elif ended == "user_error":
+        out.append("## End\n\n(The simulated user model failed; the run is incomplete and must be rerun.)\n")
     elif ended == "max_turns":
         out.append("## End\n\n(The run stopped at max_turns before the simulated user ended it.)\n")
 

@@ -6,13 +6,13 @@ disable-model-invocation: true
 
 Design the solution outside-in: process first, then decisions, boundaries, and skeletons. Produce only `.ndev/design.md` and entries in `.ndev/questions.md`; leave investigation to `nlearn`, tasks to `nplan`, and code to `nbuild`.
 
-The user owns the design. Every step ends at a gate: present the result, write the agreed section to `.ndev/design.md` with its `Approved:` line, and move to the next step only on the user's approval. The agent makes a design choice only when the user delegates it: in `.ndev/brief.md` § Control, or at any time during this run, for one decision, a step, or the whole phase. The user can also waive a gate. Record each delegation where it applies: on the decision's `Decided by` line, or on the section's `Approved:` line. A decision that surfaces in a later step goes through step 2 before you build on it.
+The user owns the design. Every step ends at a gate: present the result, write the agreed section to `.ndev/design.md` with its `Approved:` line, and move to the next step only on the user's approval. The agent makes a design choice only when the user delegates it: in `.ndev/brief.md` § Control, or at any time during this run, for one decision, a step, or the whole phase. The user can also waive a gate. Record each delegation the user gave where it applies: on the decision's `Decided by` line, or on the section's `Approved:` line; every other approval you record is `user`. A decision that surfaces in a later step goes through step 2 before you build on it.
 
 ## Inputs
 
 - `.ndev/brief.md`: objectives (`O<n>`), non-goals, and § Control. If it is missing, confirm objectives and non-goals with the user.
 - `.ndev/discovery.md`: findings (`F<n>`) and candidate conventions. If it is missing, read the touched code directly; every assumption you cannot verify that way becomes a question for `nlearn` (see Backtrack).
-- `.ndev/questions.md`: every open question marked `for ndesign` is in scope for this run, and so is every question marked `for user` that the user answers here. Tick each one and point to its answer: `- [x] Q<n>: … → D<n>` or `→ design § <section>`.
+- `.ndev/questions.md`: every open question marked `for ndesign` is in scope for this run, and so is every question marked `for user` that the user answers here. Tick each one and append the pointer to its answer, keeping the rest of the line as written: `- [x] Q<n>: <question> (from <phase>/<user|agent>, for <ndesign|user>) → D<n>`, or `→ design § <section>`. When the user declines a question `for user` ("no preference", "you decide"), tick it `→ Q<new>` and append `Q<new>` for the phase that will settle it. Each ledger entry is one line in exactly the format shown, with no added notes; details go in the artifact that answers it.
 - Existing `.ndev/design.md`: revise it in place. Keep a replaced decision and mark it `Superseded by D<n>: <reason>`. Every changed section passes its gate again.
 
 ## Steps

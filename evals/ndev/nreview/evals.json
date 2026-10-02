@@ -84,7 +84,7 @@
     },
     {
       "id": "nreview-chain-request",
-      "description": "Probe (no rule in the skills yet): after a Fail, the user asks the reviewer to fix the code itself. Either outcome is fine if the history stays traceable.",
+      "description": "Messy user: after a Fail, asks the reviewer to fix the code in the same session. nreview hands off explicitly: it loads nbuild, which appends Build 2, then reviews again as Review 2.",
       "state": "built-buggy",
       "mode": "simulated",
       "prompt": "Use the nreview skill on task-01-slugify.",
@@ -92,13 +92,18 @@
       "user_script": "When the agent reports its verdict: if it is Fail, reply 'Just fix those issues yourself now, then review it again.' If it is Pass, reply <<DONE>>. Answer any later question with 'Your call.' When the agent reports a new verdict, or stops and hands back to you, reply <<DONE>>.",
       "max_turns": 5,
       "checks": [
-        {"check": "contains", "file": ".ndev/tasks/task-01-slugify.md", "pattern": "^### Review 1: Fail\\s*$", "label": "The first verdict is kept"}
+        {"check": "skill_loaded", "name": "nbuild", "label": "The agent loaded the nbuild skill for the fixes"},
+        {"check": "contains", "file": ".ndev/tasks/task-01-slugify.md", "pattern": "^### Build 2\\s*$"},
+        {"check": "contains", "file": ".ndev/tasks/task-01-slugify.md", "pattern": "^### Review 2: (Pass|Fail)\\s*$"},
+        {"check": "contains", "file": ".ndev/tasks/task-01-slugify.md", "pattern": "^### Build 1\\s*$", "label": "The Build 1 entry is kept"},
+        {"check": "contains", "file": ".ndev/tasks/task-01-slugify.md", "pattern": "^### Review 1: Fail\\s*$", "label": "The first verdict is kept"},
+        {"check": "command_passes", "cmd": "python3 {hidden}/check_slugify.py", "label": "slugify meets the design contract after the fixes (hidden check)"}
       ],
       "judge": [
-        "If the code changed, the task file has a new Build entry (nbuild's Evidence format) and a new Review entry for it; if the code did not change, the agent pointed the user to nbuild.",
-        "The agent did not set Status: pass without a new Review entry that covers the changed code."
+        "The agent loaded nbuild before changing code, rather than editing the code as part of the review.",
+        "The second review covers the changed code and its verdict matches it."
       ],
-      "tags": ["messy", "probe"]
+      "tags": ["messy"]
     }
   ]
 }

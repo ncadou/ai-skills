@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shutil
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -26,7 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from harness.cases import SKILLS, SKILLS_DIR, Case, load_cases  # noqa: E402
 from harness.report import build_report  # noqa: E402
-from harness.runner import Config, Settings, execute_run, grade_run, rev_config  # noqa: E402
+from harness.runner import FAILED, Config, Settings, execute_run, grade_run, rev_config  # noqa: E402
 
 REPO = Path(__file__).resolve().parent.parent
 WORKSPACE = REPO / "evals-workspace"
@@ -57,12 +58,15 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--name", help="iteration folder name (default: next iteration-<n>)")
     run.add_argument("--keep-tmp", action="store_true", help="keep the /tmp work trees and homes")
     run.add_argument("--dry-run", action="store_true", help="print the planned runs and exit")
+    run.add_argument("--retry-failed", action="store_true",
+                     help="also redo runs that ended in error, timeout, or user_error")
 
     grade = sub.add_parser("grade", help="re-grade an iteration (for example after editing checks)")
     grade.add_argument("iteration", type=Path)
     grade.add_argument("--judge-model", default=DEFAULT_CHEAP_MODEL)
     grade.add_argument("--no-judge", action="store_true")
     grade.add_argument("--jobs", type=int, default=4)
+    grade.add_argument("--failed-only", action="store_true", help="only runs whose judge call failed, or ungraded runs")
 
     report = sub.add_parser("report", help="rebuild benchmark.json and benchmark.md")
     report.add_argument("iteration", type=Path)
@@ -75,7 +79,7 @@ def main(argv: list[str] | None = None) -> int:
         return _run(args)
 
     if args.command == "grade":
-        return _grade(args.iteration, None if args.no_judge else args.judge_model, args.jobs)
+        return _grade(args.iteration, None if args.no_judge else args.judge_model, args.jobs, args.failed_only)
 
     build_report(args.iteration.resolve())
     print(f"report: {args.iteration / 'benchmark.md'}")
@@ -122,7 +126,7 @@ def _run(args: argparse.Namespace) -> int:
         for config in configs
         for n in range(1, args.runs + 1)
     ]
-    todo = [p for p in plan if not (p[2] / "metrics.json").is_file()]
+    todo = [p for p in plan if not (p[2] / "metrics.json").is_file() or (args.retry_failed and _failed(p[2]))]
     print(f"{iteration}: {len(plan)} runs planned, {len(plan) - len(todo)} already done")
     if args.dry_run:
         for case, config, run_dir in todo:
@@ -139,6 +143,9 @@ def _run(args: argparse.Namespace) -> int:
     )
 
     def job(case: Case, config: Config, run_dir: Path) -> str:
+        if run_dir.exists():
+            shutil.rmtree(run_dir)  # a failed run being redone: start clean
+
         metrics = execute_run(case, config, run_dir, settings)
         grading = grade_run(case, config.label, run_dir, judge)
         summary = grading["summary"]
@@ -153,8 +160,8 @@ def _run(args: argparse.Namespace) -> int:
     return 0
 
 
-def _grade(iteration: Path, judge: str | None, jobs: int) -> int:
-    """Re-grade every run of an iteration, then rebuild the report."""
+def _grade(iteration: Path, judge: str | None, jobs: int, failed_only: bool = False) -> int:
+    """Re-grade the runs of an iteration (all, or only failed gradings), then rebuild the report."""
     iteration = iteration.resolve()
     by_id = {c.id: c for c in load_cases()}
     todo = []
@@ -162,6 +169,10 @@ def _grade(iteration: Path, judge: str | None, jobs: int) -> int:
         metrics = json.loads(metrics_path.read_text())
         if metrics["case"] not in by_id:
             print(f"skip {metrics_path.parent}: case {metrics['case']!r} no longer exists")
+            continue
+
+        grading = metrics_path.parent / "grading.json"
+        if failed_only and grading.is_file() and not json.loads(grading.read_text())["summary"].get("judge_error"):
             continue
 
         todo.append((by_id[metrics["case"]], metrics["config"], metrics_path.parent))
@@ -188,6 +199,11 @@ def _parallel(job, items: list[tuple], jobs: int) -> None:
                 line = f"{futures[future][0].id}: FAILED {exc!r}"
 
             print(f"[{done}/{len(items)}] {line}", flush=True)
+
+
+def _failed(run_dir: Path) -> bool:
+    """True when a finished run ended in an infrastructure failure."""
+    return json.loads((run_dir / "metrics.json").read_text())["ended"] in FAILED
 
 
 def _short_model(model: str) -> str:

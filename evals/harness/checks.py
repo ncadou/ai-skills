@@ -11,6 +11,7 @@ Every case gets ``DEFAULT_CHECKS`` first; its own ``checks`` follow.
 from __future__ import annotations
 
 import fnmatch
+import json
 import re
 import shutil
 import subprocess
@@ -26,9 +27,11 @@ from harness.fixtures import HIDDEN, Changes
 __all__ = [
     "CHECKS",
     "DEFAULT_CHECKS",
+    "FIDELITY_GUARD",
     "CheckResult",
     "RunContext",
     "approval_values",
+    "fidelity_guard",
     "id_definitions",
     "run_checks",
     "template_patterns",
@@ -76,6 +79,7 @@ class RunContext:
     changes: Changes
     turns: list[list[dict]] = field(default_factory=list)
     texts: list[str] = field(default_factory=list)
+    messages: list[str] = field(default_factory=list)
 
     def read(self, rel: str, *, before: bool = False) -> str | None:
         """Return the text of ``rel`` after (or before) the run, or ``None`` when absent."""
@@ -119,6 +123,40 @@ def run_checks(ctx: RunContext) -> list[CheckResult]:
     return results
 
 
+FIDELITY_GUARD = "The simulated user asked for no other phase that the agent then loaded (script-level guard)"
+
+
+def fidelity_guard(ctx: RunContext) -> CheckResult:
+    """Flag a simulated user that asked for another phase, when the agent obeyed.
+
+    A user message after the first that names a phase skill other than the
+    case's, followed in the same turn by the agent loading that skill, means
+    the run left the phase under test because the user asked. That is a broken
+    test, not a skill failure. The judge's fidelity verdict covers the rest.
+
+    :param ctx: The finished run; needs ``messages`` and ``turns``.
+    :return: A ``fidelity`` result; ``passed`` is ``None`` outside simulated mode.
+    """
+    if ctx.case.mode != "simulated":
+        return CheckResult(FIDELITY_GUARD, None, "not applicable: not simulated", kind="fidelity")
+
+    others = [s for s in SKILLS if s != ctx.case.skill]
+    hits = []
+    for number, (message, events) in enumerate(zip(ctx.messages, ctx.turns), 1):
+        if number == 1:
+            continue  # the case prompt, not the simulated user
+
+        named = {s for s in others if re.search(rf"\b{s}\b", message)}
+        loaded = {
+            (e["part"].get("state") or {}).get("input", {}).get("name")
+            for e in events
+            if e.get("type") == "tool_use" and e.get("part", {}).get("tool") == "skill"
+        }
+        hits += [f"turn {number}: user named {s}, agent loaded it" for s in sorted(named & loaded)]
+
+    return CheckResult(FIDELITY_GUARD, not hits, "; ".join(hits) or "none", kind="fidelity")
+
+
 CHECKS: dict[str, tuple[Callable[..., Result], str]] = {}
 
 
@@ -136,8 +174,8 @@ def _check(name: str, label: str) -> Callable[[Callable[..., Result]], Callable[
 
 
 @_check("skill_loaded", "The agent loaded the {case.skill} skill with the skill tool")
-def _skill_loaded(ctx: RunContext) -> Result:
-    """Pass when a ``skill`` tool call named the case's skill."""
+def _skill_loaded(ctx: RunContext, name: str | None = None) -> Result:
+    """Pass when a ``skill`` tool call named ``name`` (default: the case's skill)."""
     if ctx.config.split("@")[0] == "no_skill":
         return None, "not applicable: no skill installed"
 
@@ -147,7 +185,7 @@ def _skill_loaded(ctx: RunContext) -> Result:
         for e in turn
         if e.get("type") == "tool_use" and e.get("part", {}).get("tool") == "skill"
     ]
-    return ctx.case.skill in names, f"skill tool calls: {names or 'none'}"
+    return (name or ctx.case.skill) in names, f"skill tool calls: {names or 'none'}"
 
 
 @_check("only_touched", "Only allowed files changed ({case.skill}: produce only its artifacts)")
@@ -348,6 +386,44 @@ def _questions_ticked(ctx: RunContext, ids: list[str], answer: str = r"\S") -> R
         if i not in found or found[i]["tick"] != "x" or not re.search(answer, found[i]["answer"] or "")
     ]
     return not bad, f"not ticked with a matching answer: {bad}" if bad else "all ticked"
+
+
+@_check("no_tool_call", "No {tool} call matched /{pattern}/")
+def _no_tool_call(ctx: RunContext, tool: str, pattern: str) -> Result:
+    """Pass when no ``tool`` call's input matches ``pattern`` (searched in its JSON form)."""
+    hits = []
+    for turn in ctx.turns:
+        for event in turn:
+            part = event.get("part") or {}
+            if event.get("type") != "tool_use" or part.get("tool") != tool:
+                continue
+
+            args = json.dumps((part.get("state") or {}).get("input") or {}, ensure_ascii=False)
+            if re.search(pattern, args):
+                hits.append(args[:150])
+
+    return not hits, f"matching calls: {hits}" if hits else "none"
+
+
+@_check("not_written_in_turn", "The agent did not write {path} in turn {turn}")
+def _not_written_in_turn(ctx: RunContext, turn: int, path: str) -> Result:
+    """Pass when no file tool call of turn ``turn`` (1-based) writes a path ending in glob ``path``.
+
+    Only file tools count (``write``, ``edit``, ``multiedit``, ``patch``); a
+    shell redirect is not detected.
+    """
+    events = ctx.turns[turn - 1] if len(ctx.turns) >= turn else []
+    hits = []
+    for event in events:
+        part = event.get("part") or {}
+        if event.get("type") != "tool_use" or part.get("tool") not in ("write", "edit", "multiedit", "patch"):
+            continue
+
+        target = str(((part.get("state") or {}).get("input") or {}).get("filePath", ""))
+        if fnmatch.fnmatch(target, f"*/{path}") or fnmatch.fnmatch(target, path):
+            hits.append(f"{part['tool']} {target}")
+
+    return not hits, f"turn {turn} wrote: {hits}" if hits else "none"
 
 
 @_check("final_asks", "The last message hands a question back to the user")

@@ -9,7 +9,9 @@
       "prompt": "Use the nlearn skill.",
       "checks": [
         {"check": "final_asks"},
-        {"check": "not_contains", "file": ".ndev/discovery.md", "pattern": "^## Walkthrough", "label": "discovery.md was not written past the first gate"}
+        {"check": "not_contains", "file": ".ndev/discovery.md", "pattern": "^## Walkthrough", "label": "discovery.md was not written past the first gate"},
+        {"check": "file_absent", "path": ".ndev/scratch/*", "label": "No spike file was written before the question list was agreed"},
+        {"check": "no_tool_call", "tool": "bash", "pattern": "python", "label": "No spike ran before the question list was agreed"}
       ],
       "judge": [
         "The agent listed the questions in scope, including Q1 and Q2 (for nlearn) and Q3 (for the user).",
@@ -91,6 +93,25 @@
       "judge": [
         "Risk rulings made after the user delegated are attributed to the agent (delegated), not to the user.",
         "The user's answer to Q3, given before the delegation, is still attributed to the user."
+      ],
+      "tags": ["messy"]
+    },
+    {
+      "id": "nlearn-defer-question",
+      "description": "Messy user: declines the user question Q3 ('no preference'). nlearn must tick Q3 with a pointer to a new question for the phase that will settle it, and invent no answer.",
+      "state": "briefed",
+      "mode": "simulated",
+      "prompt": "Use the nlearn skill.",
+      "user_script": "Agree with the question list the agent proposes. When asked about Q3 (digits, and what an empty slug does), reply: 'No preference, let the design decide.' Accept every risk the agent presents and approve the findings. When the agent says discovery.md is written, reply <<DONE>>.",
+      "max_turns": 6,
+      "checks": [
+        {"check": "contains", "file": ".ndev/questions.md", "pattern": "^- \\[x\\] Q3: .+\\) → Q\\d+$", "label": "Q3 is ticked with a pointer to a new question"},
+        {"check": "question_added", "for_phase": "ndesign"},
+        {"check": "not_contains", "file": ".ndev/discovery.md", "pattern": "(?i)Answers: Q3\\b", "label": "No finding claims to answer Q3"}
+      ],
+      "judge": [
+        "The agent did not invent an answer to Q3, and did not attribute one to the user.",
+        "The new question carries Q3's substance (digits, empty slug) to the phase that will settle it."
       ],
       "tags": ["messy"]
     }

@@ -6,14 +6,14 @@ disable-model-invocation: true
 
 Frame one ndev cycle. Produce only `.ndev/brief.md` and entries in `.ndev/questions.md`; leave investigation to `nlearn`, design to `ndesign`, and tasks to `nplan`.
 
-The user decides the brief. You propose; each step ends on the user's agreement, unless the user delegates that step. Record each agreement or delegation on the section's `Approved:` line.
+The user decides the brief. Steps 1 to 4 each end at a gate: present your proposal, then stop and wait for the user's answer before the next step. Write `.ndev/brief.md` in step 5, once every gate has passed. A step skips its gate only when the user delegates it. Only the user creates a delegation, in their own words; record it as `agent (delegated: <scope>)` on the section's `Approved:` line, and record each agreement as `user`.
 
 ## Inputs
 
 - The user's request. Nothing upstream is required.
 - Existing `.ndev/` artifacts from an earlier cycle: ask the user whether to keep, archive, or delete them before writing.
 - Existing `.ndev/brief.md` for this cycle: revise it in place. Mark a replaced objective `Superseded by O<n>: <reason>` instead of deleting it.
-- `.ndev/questions.md`: resolve every open question marked `for nstart`, and every question marked `for user` that the user answers here. Tick each one and point to its answer: `- [x] Q<n>: … → O<n>` or `→ brief § <section>`.
+- `.ndev/questions.md`: resolve every open question marked `for nstart`, and every question marked `for user` that the user answers here. Tick each one and append the pointer to its answer, keeping the rest of the line as written: `- [x] Q<n>: <question> (from <phase>/<user|agent>, for <nstart|user>) → O<n>`, or `→ brief § <section>`. When the user declines a question `for user` ("no preference", "you decide"), tick it `→ Q<new>` and append `Q<new>` for the phase that will settle it. Each ledger entry is one line in exactly the format shown, with no added notes; details go in the artifact that answers it.
 
 ## Steps
 
@@ -31,7 +31,7 @@ Done when every objective is cited by at least one step of the approach, and the
 
 ### 3. Record unknowns and phases
 
-Append every unknown to `.ndev/questions.md` as `- [ ] Q<n>: <question> (from nstart/<user|agent>, for <phase|user>)`, with the next free number. Route to `user` what only the user can answer: preferences, constraints, priorities. Suggest which phases this work needs (`nlearn`, `ndesign`, `nplan`, `nbuild`, `nreview`), with a one-line reason for each skip. The suggestion is advisory; the user decides. Record both.
+Append every unknown to `.ndev/questions.md` as `- [ ] Q<n>: <question> (from nstart/<user|agent>, for <phase|user>)`, with the next free number. Route to `user` what only the user can answer: preferences, constraints, priorities. Suggest which phases this work needs (`nlearn`, `ndesign`, `nplan`, `nbuild`, `nreview`), with a one-line reason for each skip. The suggestion is advisory; the user decides. Record both, one line per phase, as in the template. Answers to questions go in `brief.md`; the ledger only points to them.
 
 Done when every unknown is in `.ndev/questions.md`, and every phase is marked run or skip with a reason, your suggestion, and the user's decision.
 

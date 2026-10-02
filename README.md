@@ -8,6 +8,7 @@ Home for the AI skills I use for software development.
 ai-skills/
 ├── .claude-plugin/
 │   └── marketplace.json   # declares each bundle as a plugin
+├── evals/                 # behavior evals: see evals/README.md
 ├── LICENSE
 ├── README.md
 └── skills/

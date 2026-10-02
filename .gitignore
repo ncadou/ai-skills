@@ -20,3 +20,6 @@ venv/
 
 # Node (skills with helper scripts)
 node_modules/
+
+# Eval results (see evals/README.md)
+evals-workspace/

@@ -6,20 +6,20 @@ disable-model-invocation: true
 
 Break the design into tasks. Produce only `.ndev/plan.md`, `.ndev/tasks/`, and entries in `.ndev/questions.md`; leave design to `ndesign` and code to `nbuild`. Take every contract from `.ndev/design.md` as written.
 
-The user approves the plan. Follow `.ndev/brief.md` § Control when it exists. The user can delegate the plan or waive its gate at any time; record it on the plan's `Approved:` line.
+The user approves the plan. Follow `.ndev/brief.md` § Control when it exists. The user can delegate the plan or waive its gate at any time; record it on the plan's `Approved:` line. Only the user creates a delegation, in § Control or in their own words; every other approval you record is `user`.
 
 ## Inputs
 
 - `.ndev/design.md`: the contracts to slice, with decisions (`D<n>`). If it is missing, work from `.ndev/brief.md`, `.ndev/discovery.md`, and the user, but only for work that adds or changes no boundary or contract; otherwise backtrack to `ndesign`.
 - `.ndev/brief.md`: objectives (`O<n>`) and § Control.
-- `.ndev/questions.md`: every open question marked `for nplan` is in scope for this run, and so is every question marked `for user` that the user answers here. Tick each one and point to its answer: `- [x] Q<n>: … → T<NN>` or `→ plan § <section>`.
+- `.ndev/questions.md`: every open question marked `for nplan` is in scope for this run, and so is every question marked `for user` that the user answers here. Tick each one and append the pointer to its answer, keeping the rest of the line as written: `- [x] Q<n>: <question> (from <phase>/<user|agent>, for <nplan|user>) → T<NN>`, or `→ plan § <section>`. When the user declines a question `for user` ("no preference", "you decide"), tick it `→ Q<new>` and append `Q<new>` for the phase that will settle it. Each ledger entry is one line in exactly the format shown, with no added notes; details go in the artifact that answers it.
 - Existing `.ndev/plan.md`: revise it in place. Read each task's status from its task file, and leave every task whose status is `done`, `pass`, or `accepted` unchanged. Keep a replaced task file and add `Superseded by T<NN>: <reason>` under its status.
 
 ## Steps
 
 ### 1. Check the design is complete
 
-Trace every objective to the decisions, components, and skeletons that deliver it, and record the trace in `plan.md` § Traceability. Each trace that ends in a missing or ambiguous contract is a gap, and so is each decision without a `Decided by` line. With no design, confirm with the user that the work adds or changes no contract.
+Trace every objective to the decisions, components, and skeletons that deliver it, and record the trace in `plan.md` § Traceability. Each trace that ends in a missing or ambiguous contract is a gap, and so is each decision without a `Decided by` line. Every component in design § Architecture must have a skeleton in § Interfaces & Skeletons; a component without one is a gap, even when the trace reaches it. With no design, confirm with the user that the work adds or changes no contract.
 
 Done when every objective traces to design contracts (or the user confirmed none are needed), every decision has an owner, and the trace is recorded, or the run has stopped on a Backtrack.
 
