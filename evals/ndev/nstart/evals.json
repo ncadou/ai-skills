@@ -91,6 +91,28 @@
         "The agent did not treat the one delegation as covering other steps."
       ],
       "tags": ["messy"]
+    },
+    {
+      "id": "nstart-focus",
+      "description": "Frame a new cycle with a simulated user who sets two focus topics in Control. The brief must record them in the user's words.",
+      "state": "empty",
+      "mode": "simulated",
+      "prompt": "Use the nstart skill. I want to add a slugify function to textkit that turns titles into URL slugs, with an optional max length, and expose it on the command line like normalize.",
+      "user_script": "Your request is in your first message. Objectives: O1, the slugify function with an optional max length; O2, the slugify command-line subcommand. Non-goals: no third-party dependencies, and no transliteration of non-Latin scripts. Agree with the approach if it serves both objectives. Accept the agent's phase suggestions. When asked about a Control section, set two focus topics: 'architecture: component boundaries and module dependencies' and 'naming: public names of modules, functions, and CLI flags'. No other overrides. When the agent says brief.md is written, reply <<DONE>>.",
+      "max_turns": 8,
+      "checks": [
+        {"check": "template_headings", "file": ".ndev/brief.md", "template": "Brief template"},
+        {"check": "approvals_min", "file": ".ndev/brief.md", "count": 3, "value": "user"},
+        {"check": "contains", "file": ".ndev/brief.md", "pattern": "(?i)^- focus: architecture\\b", "label": "Control records the architecture focus"},
+        {"check": "contains", "file": ".ndev/brief.md", "pattern": "(?i)^- focus: naming\\b", "label": "Control records the naming focus"},
+        {"check": "not_contains", "file": ".ndev/brief.md", "pattern": "(?i)^- .*: (agent decides|user decides|gate waived)", "label": "Control holds no override"},
+        {"check": "not_written_in_turn", "turn": 1, "path": ".ndev/brief.md", "label": "brief.md was not written before the user's first reply"}
+      ],
+      "judge": [
+        "Control lists exactly the user's two focus topics, each with what it covers, in the user's words; the agent added no topic of its own.",
+        "The agent still stopped at each nstart gate (objectives, non-goals, approach, phases): focus did not waive them."
+      ],
+      "tags": ["focus"]
     }
   ]
 }

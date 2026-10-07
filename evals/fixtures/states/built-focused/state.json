@@ -1,0 +1,4 @@
+{
+  "extends": "built",
+  "description": "built, with brief.md § Control setting one focus topic: error messages."
+}

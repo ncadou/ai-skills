@@ -7,7 +7,7 @@ There are no trigger evals: every `ndev` skill sets `disable-model-invocation: t
 ## Quick start
 
 ```sh
-python3 evals/run.py list                          # 32 cases
+python3 evals/run.py list                          # 36 cases
 python3 evals/run.py run --skill nbuild --runs 1   # one skill, one run per case
 python3 evals/run.py run --tag messy               # only the messy-user cases
 python3 evals/run.py run                           # everything, 3 runs per case
@@ -92,6 +92,17 @@ Real users go off the happy path. Cases tagged `messy` script one specific devia
 
 The messiness is in the script, never left to the simulated user model. A weak simulated user makes runs noisy at random; the fidelity check catches that.
 
+### Focus cases
+
+Cases tagged `focus` set focus topics in `brief.md` § Control (see the ndev README):
+
+| Case | Focus | The skill must |
+| --- | --- | --- |
+| `nstart-focus` | the user sets architecture and naming | record both topics in Control, in the user's words, and keep every nstart gate |
+| `ndesign-focus` | naming | decide every other item as `agent (delegated: outside focus)`, and stop at the first naming gate with a digest |
+| `nbuild-focus` | error messages | build without stopping, and flag error-message wording the design does not state |
+| `nreview-focus` | error messages | pass, and list that wording under `Focus flags`, not as blocking revisions |
+
 ### Fixture states
 
 States chain with `extends`, following the ndev lifecycle, so each skill starts right where it enters:
@@ -103,13 +114,16 @@ briefed                           nstart done (O1 slugify, O2 CLI)
 └── discovered                    nlearn done (F1–F8)
     ├── discovered-q4             + open Q4 for nlearn
     ├── discovered-delegated      + § Control delegates ndesign
+    ├── discovered-focused        + § Control sets focus: naming
     ├── discovered-conflict       + O3 contradicts O1
     ├── designed-gap              design with 2 gaps
     └── designed                  ndesign done (D1–D3, skeletons)
         └── planned               nplan done (T01, T02)
             ├── planned-badcmd    T01 acceptance command cannot run
+            ├── planned-focused   + § Control sets focus: error messages
             └── built             T01 done, correct code (uncommitted)
                 ├── passed        T01 pass
+                ├── built-focused + § Control sets focus: error messages
                 └── built-buggy   T01 done, buggy code, tautological test
                     └── failed    T01 fail, three nbuild revisions
 ```
@@ -168,4 +182,4 @@ Read transcripts, not only scores. Wasted steps and misread rules show up there 
 
 ## Cost
 
-One full pass is 32 cases × 3 runs = 96 agent runs per configuration, plus simulated-user and judge calls; each `--baseline` or `--also-model` multiplies that. In smoke tests an agent run used 20k–470k tokens and took 30 s–5 min; simulated cases cost the most. Use `--skill`, `--case`, and `--runs 1` while iterating, and `--jobs` to run in parallel (default 4).
+One full pass is 36 cases × 3 runs = 108 agent runs per configuration, plus simulated-user and judge calls; each `--baseline` or `--also-model` multiplies that. In smoke tests an agent run used 20k–470k tokens and took 30 s–5 min; simulated cases cost the most. Use `--skill`, `--case`, and `--runs 1` while iterating, and `--jobs` to run in parallel (default 4).

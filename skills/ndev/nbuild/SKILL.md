@@ -9,6 +9,8 @@ Build exactly one slice. Implement only the named task file; leave the next slic
 
 Implementation choices below the design contracts are yours, unless `.ndev/brief.md` § Control or the user reserves them; then ask before you choose. Only the user changes this, at any time and in their own words; record each change in the build's Evidence entry.
 
+When § Control lists focus topics, flag each choice you make that falls under a focus topic and that the design does not state: for example a new public name, or the wording of an error message. Make the choice, record it in the Evidence entry's `Choices` with `Concern: <topic>`, and list it in your report. A flag does not stop the build; a choice reserved for the user still goes to the user first.
+
 ## Inputs
 
 - The named `.ndev/tasks/task-NN-<slug>.md`. If the name is ambiguous, ask the user which file to build. If no task file exists, ask the user for the scope and an acceptance command, and confirm they want to build without a plan.
@@ -53,7 +55,7 @@ When a trigger below fires, stop. Append each gap to `.ndev/questions.md` as `- 
 - Run by: agent | user
 - Result: pass | fail
 - Output: <excerpt of the actual output>
-- Choices: <notable implementation choices, each with who made it> (when any)
+- Choices: <notable implementation choices, each with who made it, and `Concern: <topic>` when it falls under a focus topic> (when any)
 ```
 
 Task file format is defined by `nplan`; consume it as written.

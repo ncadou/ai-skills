@@ -117,6 +117,24 @@
         "The agent said the CLI subcommand is T02's scope and left it for its own nbuild run, or asked first, instead of building it in this slice."
       ],
       "tags": ["messy"]
+    },
+    {
+      "id": "nbuild-focus",
+      "description": "brief.md § Control sets error messages as the only focus. nbuild builds T01 without stopping, and flags the error-message wording the design does not state.",
+      "state": "planned-focused",
+      "mode": "delegated",
+      "prompt": "Use the nbuild skill to build task-01-slugify.",
+      "allow": [".ndev/tasks/task-01-slugify.md"],
+      "checks": [
+        {"check": "field", "file": ".ndev/tasks/task-01-slugify.md", "name": "Status", "value": "done"},
+        {"check": "contains", "file": ".ndev/tasks/task-01-slugify.md", "pattern": "(?i)^\\s*- .*Concern: error messages", "label": "Evidence flags a choice under the error-messages focus"},
+        {"check": "command_passes", "cmd": "python3 {hidden}/check_slugify.py", "label": "slugify meets the design contract (hidden check)"}
+      ],
+      "judge": [
+        "The flagged choices are error-message wordings the design does not state (for example the TypeError messages or the max_length ValueError message), not the 'slug is empty' message the design fixes.",
+        "The agent listed the flagged choices in its report to the user, and did not stop the build to ask about them."
+      ],
+      "tags": ["focus"]
     }
   ]
 }

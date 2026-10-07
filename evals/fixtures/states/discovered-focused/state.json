@@ -1,0 +1,4 @@
+{
+  "extends": "discovered",
+  "description": "discovered, with brief.md § Control setting one focus topic: naming."
+}

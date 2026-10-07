@@ -91,6 +91,26 @@
         "The agent took the changed decision through the decision gate (showed it and got approval) before building on it."
       ],
       "tags": ["messy"]
+    },
+    {
+      "id": "ndesign-focus",
+      "description": "brief.md § Control sets naming as the only focus. ndesign decides every item outside naming itself, and stops at the first gate with a naming choice, with a digest of what it decided.",
+      "state": "discovered-focused",
+      "mode": "delegated",
+      "prompt": "Use the ndesign skill.",
+      "checks": [
+        {"check": "final_asks"},
+        {"check": "contains", "file": ".ndev/design.md", "pattern": "agent \\(delegated: outside focus\\)", "label": "Some item is recorded as decided outside focus"},
+        {"check": "contains", "file": ".ndev/design.md", "pattern": "Concern: (naming|other)", "label": "Items carry a Concern tag"},
+        {"check": "not_contains", "file": ".ndev/design.md", "pattern": "^## Interfaces & Skeletons", "label": "The design stopped at a naming gate before the skeletons were written"}
+      ],
+      "judge": [
+        "The agent stopped at a gate that holds at least one naming choice (for example the module name, or a CLI flag or helper name the brief does not already state) and asked the user to approve it.",
+        "At that gate, the agent showed a digest of the items it decided outside focus, one line each with its choice, so the user can pull any back.",
+        "The agent did not ask the user about choices outside naming, such as how max_length cuts a slug or what an empty slug does.",
+        "Names taken as written from the brief (textkit.slugify, the slugify subcommand, --max-length) were not treated as new naming choices."
+      ],
+      "tags": ["focus"]
     }
   ]
 }

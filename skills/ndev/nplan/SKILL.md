@@ -8,6 +8,8 @@ Break the design into tasks. Produce only `.ndev/plan.md`, `.ndev/tasks/`, and e
 
 The user approves the plan. Follow `.ndev/brief.md` § Control when it exists. The user can delegate the plan or waive its gate at any time; record it on the plan's `Approved:` line. Only the user creates a delegation, in § Control or in their own words; every other approval you record is `user`.
 
+When § Control lists focus topics, tag the plan `Concern: <topic> | other`: does slicing, build order, or acceptance touch a focus topic? When in doubt, use the topic. A plan in focus passes its gate as written. A plan tagged `other` records `Approved: agent (delegated: outside focus)` and does not stop: when `plan.md` is written, report a digest of the slices, one line each with its dependencies and acceptance command. The user can pull the plan back to the gate. Other § Control lines and the user's own words override focus. With no focus topic, the gate applies as written.
+
 ## Inputs
 
 - `.ndev/design.md`: the contracts to slice, with decisions (`D<n>`). If it is missing, work from `.ndev/brief.md`, `.ndev/discovery.md`, and the user, but only for work that adds or changes no boundary or contract; otherwise backtrack to `ndesign`.
@@ -33,7 +35,7 @@ Done when every skeleton in `.ndev/design.md` is covered by at least one task, a
 
 Present the slices, their size, build order, dependencies, and acceptance commands. The user approves, changes, or delegates them.
 
-Done when the user approves the plan, or has delegated its gate, and `plan.md` records it on its `Approved:` line.
+Done when the user approves the plan, or has delegated its gate (§ Control, their own words, or a plan outside focus), and `plan.md` records it on its `Approved:` line.
 
 ## Backtrack
 
@@ -58,6 +60,8 @@ When a trigger below fires, stop. Append each gap to `.ndev/questions.md` as `- 
 - T02 `tasks/task-02-<slug>.md` — <title> (depends on: T01)
 
 Status lives in each task file.
+
+Concern: <topic> | other (when § Control lists focus topics)
 
 Approved: user | agent (delegated: <scope>)
 ```

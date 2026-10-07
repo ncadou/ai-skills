@@ -104,6 +104,25 @@
         "The second review covers the changed code and its verdict matches it."
       ],
       "tags": ["messy"]
+    },
+    {
+      "id": "nreview-focus",
+      "description": "brief.md § Control sets error messages as the only focus. nreview passes the correct T01 build and lists the error-message wordings the design does not state as non-blocking focus flags.",
+      "state": "built-focused",
+      "mode": "delegated",
+      "prompt": "Use the nreview skill on task-01-slugify.",
+      "allow": [".ndev/tasks/task-01-slugify.md"],
+      "checks": [
+        {"check": "field", "file": ".ndev/tasks/task-01-slugify.md", "name": "Status", "value": "pass"},
+        {"check": "contains", "file": ".ndev/tasks/task-01-slugify.md", "pattern": "^Focus flags:", "label": "The verdict has a Focus flags list"},
+        {"check": "contains", "file": ".ndev/tasks/task-01-slugify.md", "pattern": "(?i)^- .*slug\\.py:\\d+.*error messages", "label": "A focus flag cites slug.py:line and the topic"},
+        {"check": "unchanged", "paths": ["textkit/*", "tests/*"]}
+      ],
+      "judge": [
+        "The focus flags name the TypeError messages and the 'max_length must be at least 1' message, which the design does not state; they do not flag 'slug is empty', which the design fixes.",
+        "No focus flag is listed as a blocking revision."
+      ],
+      "tags": ["focus"]
     }
   ]
 }

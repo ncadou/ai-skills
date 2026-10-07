@@ -22,9 +22,9 @@ Done when every changed file is mapped to the task scope, and out-of-scope chang
 
 ### 2. Apply every rule below
 
-Apply the full Correctness and Readability sets. Decide a Pass/Fail verdict with blocking revisions, and name the phase each revision belongs to. Each blocking revision cites `file:line` (for a problem in Evidence, the task file's Evidence entry) and states the change to make. A finding with nothing to change is not blocking.
+Apply the full Correctness and Readability sets, and the Focus rule when § Control lists focus topics. Decide a Pass/Fail verdict with blocking revisions, and name the phase each revision belongs to. Each blocking revision cites `file:line` (for a problem in Evidence, the task file's Evidence entry) and states the change to make. A finding with nothing to change is not blocking.
 
-Done when every rule has been applied and the verdict names its blocking revisions, or states there are none.
+Done when every rule has been applied and the verdict names its blocking revisions, or states there are none, and its focus flags when focus applies.
 
 ### 3. Record the verdict
 
@@ -45,6 +45,10 @@ Done when the task file holds the new Review entry and its status matches the ve
 - Types are explicit and docstrings match current signatures.
 - Complex logic explains its reasoning at its site, not just what the code does.
 - Public contract changes update project docs (README, design notes, or architectural notes).
+
+## Focus
+
+When `.ndev/brief.md` § Control lists focus topics, list under `Focus flags` every choice in the diff that falls under a focus topic and that the design does not state, whether or not the Evidence entry flags it. Cite `file:line` and the topic. A flag is not blocking. A choice that contradicts the design is a blocking revision, not a flag.
 
 ## Acceptance
 
@@ -68,4 +72,7 @@ Revisions that `nbuild` can fix within the task stay in the verdict. For the tri
 Blocking revisions:
 1. <file:line — what fails and what to change> (nbuild|nplan|ndesign|nlearn)
 2. ...
+
+Focus flags: (when § Control lists focus topics)
+- <file:line — choice> (<topic>)
 ```

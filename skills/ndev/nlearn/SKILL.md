@@ -8,6 +8,8 @@ Run a discovery investigation, so that both you and the user learn before anyone
 
 Steps 1 and 4 end at a gate: present the result, then stop and wait for the user's answer before the next step. Follow `.ndev/brief.md` § Control when it exists. The user can delegate a step or waive a gate at any time; record it on the `Approved:` line of the section it affects. Only the user creates a delegation, in § Control or in their own words; every other approval you record is `user`.
 
+When § Control lists focus topics, they decide which items stop at a gate. Tag each finding `Concern: <topic> | other`, and classify each question the same way without changing its ledger line; when in doubt, use the topic. Decide each `other` item yourself and record `agent (delegated: outside focus)` on its ruling and its walkthrough line. At each gate, present the in-focus items in full, then a digest of the items you decided since the last gate, one line each. The user can pull any item back; it then passes the gate like an in-focus item. A gate with no item in focus does not stop: carry its digest to the next gate, or report it at the end of the phase. Other § Control lines and the user's own words override focus. Each step's Done line reads with focus applied. With no focus topic, every gate applies as written.
+
 ## Inputs
 
 - `.ndev/brief.md`: objectives (`O<n>`) and non-goals. If it is missing, confirm objectives and non-goals with the user.
@@ -68,6 +70,7 @@ Cite the objectives by ID from `.ndev/brief.md`. Restate scope and non-goals onl
 - Source: <file path or doc>
 - Applies to: <touched area>
 - Answers: Q<n> (when any)
+- Concern: <topic> | other (when § Control lists focus topics)
 
 ## Assumptions & Validation
 
@@ -77,6 +80,7 @@ Cite the objectives by ID from `.ndev/brief.md`. Restate scope and non-goals onl
 - Status: verified | refuted | unverified | Superseded by F<n>: <reason>
 - Ruling (when unverified): accepted | rejected: <reason> — by user | agent (delegated: <scope>)
 - Answers: Q<n> (when any)
+- Concern: <topic> | other (when § Control lists focus topics)
 
 ## Identified Risks & Spikes
 
@@ -84,8 +88,11 @@ Cite the objectives by ID from `.ndev/brief.md`. Restate scope and non-goals onl
 
 - Source: <spike path and observed output, edge case, or file path>
 - Ruling: accepted | rejected: <reason> — by user | agent (delegated: <scope>)
+- Concern: <topic> | other (when § Control lists focus topics)
 
 ## Walkthrough
 
 - F1–F<n>: Approved: user | agent (delegated: <scope>)
+
+With focus topics, list the findings decided outside focus on their own line.
 ```

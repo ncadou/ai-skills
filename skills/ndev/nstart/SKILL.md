@@ -37,7 +37,12 @@ Done when every unknown is in `.ndev/questions.md`, and every phase is marked ru
 
 ### 4. Offer a control seed
 
-Ask the user once whether to set a Control section: what the agent may decide alone, and which gates to waive. An empty answer is fine: then every gate applies and the agent makes no design choice. The seed does not limit the user; they can change delegation in any phase, at any time.
+Ask the user once whether to set a Control section, in two parts:
+
+- Focus: the topics the user wants to review, in their own words, each with a line on what it covers (for example `architecture`, `naming`). From `nlearn` on, the gates stop only for items in focus; the agent decides every other item and lists it in a digest at the next gate.
+- Overrides: what the agent may decide alone, what the user decides even outside focus, and which gates to waive.
+
+Take topics only from the user; do not copy them from an earlier brief. An empty answer is fine: then every gate applies and the agent makes no design choice. The seed does not limit the user; they can change focus and delegation in any phase, at any time. The gates of `nstart` stay as they are.
 
 Done when the user has set Control, or declined.
 
@@ -86,5 +91,6 @@ Approved: user | agent (delegated: <scope>)
 
 Optional. Empty: every gate applies and the agent makes no design choice.
 
-- <scope>: agent decides | gate waived
+- focus: <topic> — <what it covers>
+- <scope>: agent decides | user decides | gate waived
 ```

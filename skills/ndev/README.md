@@ -21,6 +21,17 @@ Each artifact has one writer. Two exceptions: `questions.md`, a shared ledger th
 
 **Control.** The user owns the design and decides how much to delegate. `brief.md` § Control is an optional seed; when it is empty, every gate applies and the agent makes no design choice. In any phase, at any time, the user can delegate one decision, a step, or a whole phase, or waive a gate. Each phase records the change where it applies: on a `Decided by` line, an `Approved:` line, or a task's Evidence entry.
 
+**Focus.** § Control can list focus topics, in the user's words (`- focus: naming — public names of modules, types, functions, CLI flags`). Focus applies from `nlearn` on:
+
+- Each gated item carries `Concern: <topic> | other`. When in doubt, the item is in focus.
+- An item in focus passes its gate as usual.
+- An `other` item is delegated: the agent decides it and records `agent (delegated: outside focus)`.
+- Each gate shows the in-focus items in full, then a digest of the delegated items since the last gate, one line each. The user can pull any item back into focus.
+- A step with no item in focus does not stop. Its digest goes to the next gate, or to the end of the phase.
+- `nbuild` and `nreview` only flag choices that fall under a focus topic and that the design does not state.
+
+Other § Control lines and the user's own words override focus, in both directions (`agent decides`, `user decides`). With no focus topic, the gates work as described under Control.
+
 **Traceability.** Items carry IDs that are never reused:
 
 - `O1` objective, in `brief.md`

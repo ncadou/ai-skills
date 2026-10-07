@@ -8,6 +8,8 @@ Design the solution outside-in: process first, then decisions, boundaries, and s
 
 The user owns the design. Every step ends at a gate: present the result, write the agreed section to `.ndev/design.md` with its `Approved:` line, and move to the next step only on the user's approval. The agent makes a design choice only when the user delegates it: in `.ndev/brief.md` § Control, or at any time during this run, for one decision, a step, or the whole phase. The user can also waive a gate. Record each delegation the user gave where it applies: on the decision's `Decided by` line, or on the section's `Approved:` line; every other approval you record is `user`. A decision that surfaces in a later step goes through step 2 before you build on it.
 
+When § Control lists focus topics, they decide which items stop at a gate. Tag each scenario, decision, component, and skeleton `Concern: <topic> | other`; when in doubt, use the topic. Tag an item by the choices it makes: what it takes as written from approved artifacts (brief, discovery, earlier sections) is not a choice. Decide each `other` item yourself, and record `agent (delegated: outside focus)` on its `Decided by` line. At each gate, present the in-focus items in full, then a digest of the items you decided since the last gate, one line each: the item, your choice, and its reason. The user can pull any item back; it then passes the gate like an in-focus item. When an item mixes topics, present in full only its in-focus part: with `naming` in focus, a table of the names a skeleton adds, not every signature. A section with an item in focus records `Approved: user` once the user approves. A section with no item in focus records `Approved: agent (delegated: outside focus)` and does not stop: carry its digest to the next gate, or report it when `.ndev/design.md` is complete. Other § Control lines and the user's own words override focus. Each step's Done line reads with focus applied. With no focus topic, every gate applies as written.
+
 ## Inputs
 
 - `.ndev/brief.md`: objectives (`O<n>`), non-goals, and § Control. If it is missing, confirm objectives and non-goals with the user.
@@ -59,6 +61,8 @@ When a trigger below fires, stop. Append each gap to `.ndev/questions.md` as `- 
 
 Serves: O<n>, …
 
+Concern: <topic> | other (when § Control lists focus topics)
+
 Actors, triggers, steps, failure paths, data flow, state changes.
 
 Approved: user | agent (delegated: <scope>)
@@ -68,11 +72,12 @@ Approved: user | agent (delegated: <scope>)
 ### D1: <decision>
 
 - Serves: O<n>; Answers: Q<n> (when any)
+- Concern: <topic> | other (when § Control lists focus topics)
 - Options: <option — tradeoff>, …
 - Evidence: <F<n> or file path>
 - Recommendation: <option and reason>
 - Choice: <option and reason>
-- Decided by: user | agent (delegated: <decision, step, or phase>)
+- Decided by: user | agent (delegated: <decision, step, phase, or outside focus>)
 - Superseded by D<n>: <reason> (when replaced)
 
 Approved: user | agent (delegated: <scope>)
@@ -85,6 +90,7 @@ Approved: user | agent (delegated: <scope>)
 - Serves: Process § <scenario>
 - Rests on: D<n>, …
 - Reference: <F<n> or file path> | none
+- Concern: <topic> | other (when § Control lists focus topics)
 
 How the components compose.
 
@@ -95,6 +101,8 @@ Approved: user | agent (delegated: <scope>)
 ### <component>
 
 Implements: D<n>, …
+
+Concern: <topic> | other (when § Control lists focus topics)
 
 Types, signatures, schemas, error contracts. No logic.
 
