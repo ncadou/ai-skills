@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -31,8 +32,8 @@ from harness.runner import FAILED, Config, Settings, execute_run, grade_run, rev
 
 REPO = Path(__file__).resolve().parent.parent
 WORKSPACE = REPO / "evals-workspace"
-DEFAULT_MODEL = "opencode/claude-opus-5-5"
-DEFAULT_CHEAP_MODEL = "opencode/glm-5.3-flash"
+DEFAULT_MODEL = os.environ.get("EVALS_MODEL", "opencode/claude-opus-5-5")
+DEFAULT_CHEAP_MODEL = os.environ.get("EVALS_CHEAP_MODEL", "opencode/glm-5.3-flash")
 
 
 def main(argv: list[str] | None = None) -> int:

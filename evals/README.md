@@ -140,6 +140,8 @@ Prefer a script check when the answer is objective. Use a `judge` expectation fo
 
 A cheap judge is fast but can be wrong. Re-grading the same 62 runs flipped 2% of judge verdicts, all on borderline expectations; script checks never flip. When a judge verdict decides whether an edit ships, re-grade with a stronger model: `python3 evals/run.py grade <iteration> --judge-model <model>`.
 
+The defaults come from the environment: `EVALS_MODEL` overrides the agent model, `EVALS_CHEAP_MODEL` the simulated user and judge. Without them, the table above applies.
+
 ## Reading results
 
 - `benchmark.md`: pass rate mean ± stddev per case, skill, and config, plus analyst notes:
