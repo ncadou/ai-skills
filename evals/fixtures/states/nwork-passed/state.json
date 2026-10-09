@@ -1,0 +1,4 @@
+{
+  "extends": "nwork-built",
+  "description": "nwork-built, with T1 reviewed (pass, verified). Adds O3, an independent keep_newlines option for normalize_whitespace: D5 decided, T3 eligible. T2 still waits for D4."
+}

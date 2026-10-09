@@ -21,7 +21,7 @@ from harness.agent import EVALUATOR_AGENT, make_home, run_turn
 from harness.cases import Case
 from harness.checks import CheckResult
 
-__all__ = ["FIDELITY", "MODE_HELP", "judge_run"]
+__all__ = ["FIDELITY", "FORMAT_HELP", "MODE_HELP", "judge_run"]
 
 PROMPT = (Path(__file__).resolve().parent.parent / "prompts" / "judge.md").read_text()
 MODE_HELP = {
@@ -29,6 +29,27 @@ MODE_HELP = {
     "delegated": "The user delegated the gates (in the prompt or in brief.md § Control), or the skill has none, "
     "so the agent could finish in one turn.",
     "simulated": "A simulated user answered the agent over several turns, following a script.",
+}
+# nwork has no phase gates: the working agreement (P1) sets what it may decide.
+NWORK_MODE_HELP = {
+    **MODE_HELP,
+    "gate": "The user's message grants no authority, so the agent should stop where a choice needs the user "
+    "(for example, a proposed working agreement) and attribute nothing to the user.",
+    "delegated": "The prompt or the working agreement (P1) grants the authority this case needs, so the agent "
+    "could finish in one turn.",
+}
+# Appended to the mode line of the prompt; empty for the ndev phases, so their prompt is unchanged.
+FORMAT_HELP = {
+    "ndev": "",
+    "ndev-next": (
+        "\n\nThe nwork skill has no phases: in one session it investigates, decides, builds, and reviews, as far as "
+        "readiness and the working agreement allow. The project state is `.ndev/now.md` (the current view) and "
+        "`.ndev/items/` (one record per item, format `ndev-next/1`); the records are the authority. `Status` and "
+        "`Validity` are separate: a slice can stay `implemented` while it `needs-revalidation`. The working "
+        "agreement P1 separates focus (presentation only), authority (delegated and reserved choices), and "
+        "detail. Attributions read `user (<date>): \"<words>\"`, which must quote the user, or "
+        "`agent (delegated: [P1](...) § Authority: <clause>)`, which must rest on a clause the user granted."
+    ),
 }
 FIDELITY = (
     "The simulated user (every USER message after the first) kept to its script: it invented no requirement, "
@@ -94,7 +115,8 @@ def _prompt(case: Case, run_dir: Path, expected: list[str]) -> str:
         skill=case.skill,
         description=case.description,
         mode=case.mode,
-        mode_help=MODE_HELP[case.mode],
+        mode_help=(NWORK_MODE_HELP if case.bundle == "ndev-next" else MODE_HELP)[case.mode],
+        format_help=FORMAT_HELP[case.bundle],
         script=case.user_script or "(not simulated)",
         conversation=_cap((run_dir / "conversation.md").read_text(), "conversation"),
         changes="\n".join(f"- {k}: {', '.join(v) or 'none'}" for k, v in changes.items()),

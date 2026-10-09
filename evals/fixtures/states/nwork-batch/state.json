@@ -1,0 +1,4 @@
+{
+  "extends": "nwork-working",
+  "description": "nwork-working, plus O3, a batch command (slugify-lines) in P1's scope, with four open questions for the user: Q2-Q4 share one rationale (one output line per input line, go on past bad lines); Q5 (the reader stops early, as with | head -1) is a genuine exception: the output side fails, so that rule cannot apply."
+}

@@ -1,13 +1,13 @@
 # Evals for the ndev skills
 
-Behavior evals for the six `ndev` skills. Each case puts a skill in a known repo state, runs it headless through `opencode run`, and grades the result with script checks plus an LLM judge.
+Behavior evals for the six `ndev` skills and the experimental `nwork` skill (bundle `ndev-next`; see [nwork](#nwork)). Each case puts a skill in a known repo state, runs it headless through `opencode run`, and grades the result with script checks plus an LLM judge.
 
-There are no trigger evals: every `ndev` skill sets `disable-model-invocation: true`, so the description never decides whether a skill loads.
+There are no trigger evals: every skill under test sets `disable-model-invocation: true`, so the description never decides whether a skill loads.
 
 ## Quick start
 
 ```sh
-python3 evals/run.py list                          # 36 cases
+python3 evals/run.py list                          # 43 cases
 python3 evals/run.py run --skill nbuild --runs 1   # one skill, one run per case
 python3 evals/run.py run --tag messy               # only the messy-user cases
 python3 evals/run.py run                           # everything, 3 runs per case
@@ -42,7 +42,7 @@ Labels then read `<skills>@<model>`, for example `with_skill@glm-5.3-flash`. The
 ## How a run works
 
 1. **Fixture.** The toy repo `fixtures/repo/` (`textkit`, a small Python package) is copied to `/tmp/ndev-work/run-<random>/work`. Then the case's state is overlaid on it, and it gets its own git repo. The agent sees this path, so it names no case and no mode: a path such as `nstart-simulated-…` once led an agent to treat the run as a test and record delegations nobody gave.
-2. **Isolation.** opencode gets a fresh `HOME` holding only the skills under test. Globally installed skills, `AGENTS.md`, plugins, and MCP servers stay out. The config copies your `provider` block and links `auth.json`, so your models still work.
+2. **Isolation.** opencode gets a fresh `HOME` holding only the skills under test: the bundle of the case's skill (`skills/ndev/` for the phases, `skills/ndev-next/` for `nwork`), whole skill folders with their `references/`. Globally installed skills, `AGENTS.md`, plugins, and MCP servers stay out. The config copies your `provider` block and links `auth.json`, so your models still work.
 3. **Agent.** `opencode run --format json` gets the case prompt. In `simulated` mode, a second model plays the user and answers from the case's `user_script` until it replies `<<DONE>>` or `max_turns` is reached. Its prompt (`prompts/simulated_user.md`) names the phase under test and forbids asking for another phase.
 4. **Grading.** Script checks run on the before and after trees. Then the judge grades the case's `judge` expectations from the transcript, the artifacts, and the diff. In simulated mode, **fidelity** asks whether the simulated user kept to its script. Two results answer it: the judge's verdict, and a script-level guard that fails when a user message after the first names another phase skill and the agent loads that skill in the same turn. When either fails, the run is a broken test, not a skill failure. It is left out of the pass rates and listed in the notes as `off script (excluded)`.
 
@@ -53,13 +53,13 @@ Permissions are all `allow`, except that file tools cannot leave the work tree (
 ```text
 evals/
 ├── run.py                   # CLI: list, run, grade, report
-├── harness/                 # fixtures, agent, runner, checks, judge, report
+├── harness/                 # fixtures, agent, runner, checks, records, judge, report
 ├── prompts/                 # simulated user and judge prompts
 ├── fixtures/
 │   ├── repo/                # the toy textkit repo
 │   ├── states/<name>/       # layered .ndev/ states (see below)
 │   └── hidden/              # checks the agent never sees (slugify contract)
-├── ndev/<skill>/evals.json  # the cases
+├── ndev/<skill>/evals.json  # the cases, nwork included
 └── tests/                   # unit tests for checks and fixtures
 ```
 
@@ -126,13 +126,20 @@ briefed                           nstart done (O1 slugify, O2 CLI)
                 ├── built-focused + § Control sets focus: error messages
                 └── built-buggy   T01 done, buggy code, tautological test
                     └── failed    T01 fail, three nbuild revisions
+nwork-working                     nwork (ndev-next/1): O1, O2, P1 active; T1 eligible, T2 waits for D4 (reserved)
+├── nwork-batch                   + O3 batch command, open Q2–Q5 (reserved)
+└── nwork-built                   T1 implemented, correct code (uncommitted)
+    ├── nwork-built-edited        code edited after the build: T1's acceptance now fails
+    └── nwork-passed              T1 pass; + O3 keep_newlines, T3 eligible
+        ├── nwork-interrupted     F3 refutes F1; D1, T1, T2 need revalidation; D6 waits; now.md stale on purpose
+        └── nwork-revalidating    F3 (other scripts) changes nothing the user accepted; D1, D3, D4, T1, T2 still marked
 ```
 
 A state folder holds `state.json` (`extends`, `description`) and two optional overlays. `base/` is committed as the base commit. `work/` stays uncommitted, so `git diff` shows it; `nreview` reviews that diff.
 
 ## Checks
 
-Every case gets these default checks:
+Every phase case gets these default checks:
 
 - `skill_loaded`: the `skill` tool loaded the case's skill (skipped for `no_skill`).
 - `only_touched`: every changed file is one the skill may write (from its "Produce only …" line, plus the case's `allow`).
@@ -143,6 +150,38 @@ Every case gets these default checks:
 Cases add their own checks: `field`, `contains`, `not_contains`, `file_exists`, `file_absent`, `unchanged`, `template_headings` (headings from the SKILL.md template itself), `approvals_min`, `question_added`, `questions_ticked`, `final_asks`, `no_tool_call` (no tool call whose input matches a pattern), `not_written_in_turn` (no file tool wrote a path in a given turn, for example the brief before the user's first reply), and `command_passes` (runs a command on a copy of the final tree, for example the hidden slugify contract check). See `harness/checks.py`.
 
 Prefer a script check when the answer is objective. Use a `judge` expectation for meaning: is the review finding real, does the finding quote real spike output.
+
+## nwork
+
+`nwork` (in `skills/ndev-next/`) is one skill that investigates, decides, builds, and reviews, within a working agreement. Its state is `.ndev/now.md` plus one record per item under `.ndev/items/`, in the format `ndev-next/1` (`skills/ndev-next/nwork/references/records.md`). The harness treats it as a second format:
+
+- **Install.** Its runs install only `skills/ndev-next/nwork/`, references included; phase runs install only `skills/ndev/`. A `--baseline <rev>` without `nwork` installs nothing for its `nwork` runs, and `run` prints a warning.
+- **Modes.** `nwork` has no phase gates. `gate` means the prompt grants no authority, so the agent must stop where a choice needs the user. `delegated` means the prompt or the working agreement (P1) grants what the case needs.
+- **Prompts.** The simulated user's scope rule and the judge's mode help describe `nwork`. The phase cases get exactly the same prompts as before.
+- **Fixtures.** States named `nwork-*` (see [Fixture states](#fixture-states)).
+
+Every `nwork` case gets these default checks instead of the phase ones (the parsing is in `skills/ndev-next/nwork/scripts/check_records.py`, the checker that the skill bundles; `harness/records.py` loads it):
+
+- `skill_loaded`, `only_touched` (`.ndev/now.md`, `.ndev/items/*`, and the code).
+- `attributions`: a new `user (<date>): "<words>"` quotes words found in a user message, and never appears in gate mode; `agent (delegated: [P1](...) § Authority: <clause>)` cites an active working agreement (in gate mode, one active before the run). A working agreement that becomes active or changes its Authority gains an `Established by` line that quotes a user message. Whether the words justify the claim is for the judge.
+- `records_format`: filenames `<ID>-<slug>.md` matching unique IDs, the metadata keys in order, valid statuses and validity values.
+- `records_links`: relationship lines hold only links, every link resolves, `Superseded by` is present exactly on superseded records, and no `current` item depends on a superseded, needs-revalidation, or refuted one.
+- `records_preserved`: no record file disappears or changes its ID.
+- `now_view`: `now.md` has the format line and sections, its links resolve to records, it lists no superseded item, `Under revalidation` matches the records, and `Implemented and verified` and `Eligible work` list only items that belong there.
+
+Case checks for `nwork`: `record` (status and validity of one ID), `section_unchanged` (one section of one record, for example P1 § Authority), `records_sections` (type-specific sections, `History` last), `now_lists` (IDs present or absent in a `now.md` section), `now_eligible_complete` (every slice that the records make eligible is listed), and `acceptance_holds` (runs each built slice's own `Acceptance` command on the final tree).
+
+The `nwork` cases: one per behavior of the pilot, plus `nwork-revalidate-unaffected` (Phase 4b), the counterpart of `nwork-contradiction`:
+
+| Case | Mode | State | The skill must |
+| --- | --- | --- | --- |
+| `nwork-principles` | simulated | `nwork-batch` | propose one scoped rule for Q2–Q4, keep Q5 (duplicates) apart, and record the user's adoption |
+| `nwork-contradiction` | gate | `nwork-passed` | verify a reported contradiction, mark D1, T1, and T2 for revalidation with their statuses kept, keep T3 eligible, and leave D1 to the user |
+| `nwork-revalidate-unaffected` | gate | `nwork-revalidating` | revalidate the user's D1 and D3 itself, because F3 changes nothing the user accepted; record why in History, restore their dependants, and not ask the user |
+| `nwork-local-readiness` | delegated | `nwork-working` | build and verify T1 while T2 waits for D4 |
+| `nwork-cold-resume` | gate | `nwork-interrupted` | take the state from the records, repair the stale `now.md`, and report what changed, what needs the user, and one next action |
+| `nwork-focus-shift` | delegated | `nwork-built` | change focus and detail in P1 but not authority, and ask whether "I don't care about the errors" delegates |
+| `nwork-brief-quality` | delegated | `nwork-built-edited` | rerun T1's acceptance, fail it, and keep the stale build and D4 in a two-line report |
 
 ## Models
 
@@ -182,4 +221,4 @@ Read transcripts, not only scores. Wasted steps and misread rules show up there 
 
 ## Cost
 
-One full pass is 36 cases × 3 runs = 108 agent runs per configuration, plus simulated-user and judge calls; each `--baseline` or `--also-model` multiplies that. In smoke tests an agent run used 20k–470k tokens and took 30 s–5 min; simulated cases cost the most. Use `--skill`, `--case`, and `--runs 1` while iterating, and `--jobs` to run in parallel (default 4).
+One full pass of the phase cases is 36 cases × 3 runs = 108 agent runs per configuration, plus simulated-user and judge calls; each `--baseline` or `--also-model` multiplies that. In smoke tests an agent run used 20k–470k tokens and took 30 s–5 min; simulated cases cost the most. Use `--skill`, `--case`, and `--runs 1` while iterating, and `--jobs` to run in parallel (default 4).

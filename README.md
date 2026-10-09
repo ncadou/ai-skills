@@ -12,14 +12,18 @@ ai-skills/
 ├── LICENSE
 ├── README.md
 └── skills/
-    └── ndev/              # bundle: see skills/ndev/README.md
-        ├── nstart/
-        ├── nlearn/
-        ├── ndesign/
-        ├── nplan/
-        ├── nbuild/
-        └── nreview/
+    ├── ndev/              # bundle: see skills/ndev/README.md
+    │   ├── nstart/
+    │   ├── nlearn/
+    │   ├── ndesign/
+    │   ├── nplan/
+    │   ├── nbuild/
+    │   └── nreview/
+    └── ndev-next/         # experimental bundle: see skills/ndev-next/README.md
+        └── nwork/
 ```
+
+`ndev-next` is an experimental pilot of a successor to `ndev`: one skill, `nwork`, that works from a current-state view and a working agreement. A project uses one of the two formats at a time.
 
 ## Adding a skill
 
@@ -39,6 +43,9 @@ npx skills@latest add ncadou/ai-skills
 # Install the whole ndev bundle
 npx skills@latest add ncadou/ai-skills/skills/ndev
 
+# Install the experimental ndev-next bundle
+npx skills@latest add ncadou/ai-skills/skills/ndev-next
+
 # From the self-hosted remote (no subpath support: select skills by name)
 npx skills@latest add ssh://git@git.gateway.cadou.ca:2222/nicolas/ai-skills.git --skill '*'
 ```
@@ -48,6 +55,7 @@ With the Claude Code plugin marketplace (skills are then named `/ndev:nstart`, e
 ```text
 /plugin marketplace add ncadou/ai-skills
 /plugin install ndev@ai-skills
+/plugin install ndev-next@ai-skills
 ```
 
 Or symlink / copy the relevant `skills/<bundle>/<skill-name>/` folder into your agent's skills directory.

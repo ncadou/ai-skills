@@ -26,7 +26,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from harness.cases import SKILLS, SKILLS_DIR, Case, load_cases  # noqa: E402
+from harness.cases import SKILLS, SKILLS_ROOT, Case, load_cases  # noqa: E402
 from harness.report import build_report  # noqa: E402
 from harness.runner import FAILED, Config, Settings, execute_run, grade_run, rev_config  # noqa: E402
 
@@ -47,7 +47,7 @@ def main(argv: list[str] | None = None) -> int:
     run = sub.add_parser("run", help="run cases, grade them, and write the report")
     _filters(run)
     run.add_argument("--runs", type=int, default=3, help="repetitions per case and config (default: 3)")
-    run.add_argument("--baseline", help="also run a baseline: 'no-skill', or a git revision of skills/ndev")
+    run.add_argument("--baseline", help="also run a baseline: 'no-skill', or a git revision of skills/")
     run.add_argument("--model", default=DEFAULT_MODEL, help=f"agent model (default: {DEFAULT_MODEL})")
     run.add_argument("--also-model", action="append", default=[],
                      help="run every config with this agent model too (repeatable)")
@@ -108,7 +108,7 @@ def _run(args: argparse.Namespace) -> int:
     """Run every selected case under every config, then grade and report."""
     cases = load_cases(args.skill, args.case, args.tag)
     iteration = (WORKSPACE / (args.name or _next_iteration())).resolve()
-    kinds = [Config("with_skill", SKILLS_DIR)]
+    kinds = [Config("with_skill", SKILLS_ROOT)]
     if args.baseline == "no-skill":
         kinds.append(Config("no_skill", None))
     elif args.baseline:
@@ -129,6 +129,8 @@ def _run(args: argparse.Namespace) -> int:
     ]
     todo = [p for p in plan if not (p[2] / "metrics.json").is_file() or (args.retry_failed and _failed(p[2]))]
     print(f"{iteration}: {len(plan)} runs planned, {len(plan) - len(todo)} already done")
+    for skill, label in sorted({(c.skill, k.label) for c, k, _ in plan if k.skills_dir and not k.skills_for(c.skill)}):
+        print(f"  warning: {label} has no {skill} skill; its {skill} runs install no skill")
     if args.dry_run:
         for case, config, run_dir in todo:
             print(f"  {case.id} [{config.label}] {run_dir.name}")

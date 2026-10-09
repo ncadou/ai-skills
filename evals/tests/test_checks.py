@@ -11,7 +11,7 @@ import unittest
 from pathlib import Path
 
 from harness import checks
-from harness.cases import SKILLS_DIR, Case, load_cases
+from harness.cases import SKILL_DIRS, Case, load_cases
 from harness.checks import RunContext, approval_values, run_checks, template_patterns
 from harness.fixtures import diff_trees, list_states, materialize
 
@@ -22,6 +22,9 @@ TEMPLATES = {
     "ndesign": ("Design template", ".ndev/design.md"),
     "nplan": ("Plan template", ".ndev/plan.md"),
 }
+# States whose flaw is the point of their cases, by the label of the check that must catch it.
+# nwork-interrupted: the session was cut off before it updated now.md.
+BROKEN_ON_PURPOSE = {"nwork-interrupted": "now.md follows the format"}
 
 
 def _case(**overrides: object) -> Case:
@@ -246,12 +249,12 @@ class TemplateTest(unittest.TestCase):
     """template_patterns reads the SKILL.md templates."""
 
     def test_brief_headings(self) -> None:
-        patterns = template_patterns((SKILLS_DIR / "nstart/SKILL.md").read_text(), "Brief template")
+        patterns = template_patterns((SKILL_DIRS["nstart"] / "SKILL.md").read_text(), "Brief template")
         self.assertTrue(patterns[0].search("# Brief: slugify"))
         self.assertIn("## Control", [p.pattern.strip("^$").replace("\\s*", "").replace("\\", "") for p in patterns])
 
     def test_ids_generalize(self) -> None:
-        patterns = template_patterns((SKILLS_DIR / "ndesign/SKILL.md").read_text(), "Design template")
+        patterns = template_patterns((SKILL_DIRS["ndesign"] / "SKILL.md").read_text(), "Design template")
         self.assertTrue(any(p.search("### D7: Cut rule") for p in patterns))
 
     def test_unknown_template(self) -> None:
@@ -267,15 +270,29 @@ class FixtureStatesTest(unittest.TestCase):
             with self.subTest(state=state), tempfile.TemporaryDirectory() as tmp:
                 tree = Path(tmp) / "tree"
                 materialize(state, tree)
+                # nwork states get the nwork defaults, plus the stricter record checks.
+                nwork = state.startswith("nwork-")
+                extra = [{"check": "records_sections"}, {"check": "now_eligible_complete"}] if nwork else []
                 ctx = RunContext(
-                    case=_case(state=state, mode="simulated"),
+                    case=_case(state=state, mode="simulated", skill="nwork" if nwork else "nstart", checks=extra),
                     config="with_skill",
                     before=tree,
                     after=tree,
                     changes=diff_trees(tree, tree),
                 )
-                for result in run_checks(ctx)[2:]:  # skip skill_loaded, only_touched
+                results = run_checks(ctx)[2:]  # skip skill_loaded, only_touched
+                # A state that is broken on purpose must fail exactly its broken check.
+                broken = [r for r in results if r.text.startswith(BROKEN_ON_PURPOSE.get(state, "\0"))]
+                self.assertEqual(len(broken), int(state in BROKEN_ON_PURPOSE), state)
+                for result in broken:
+                    self.assertIs(result.passed, False, f"{state} should fail {result.text}")
+
+                results = [r for r in results if r not in broken]
+                for result in results:
                     self.assertIsNot(result.passed, False, f"{result.text}: {result.evidence}")
+
+                if nwork:
+                    self.assertTrue(all(r.passed for r in results), [(r.text, r.evidence) for r in results])
 
     def test_artifacts_match_templates(self) -> None:
         for state in list_states():
@@ -287,11 +304,11 @@ class FixtureStatesTest(unittest.TestCase):
                         continue  # stale-cycle skipped design; designed-gap is broken on purpose
 
                     text = (tree / rel).read_text()
-                    for pattern in template_patterns((SKILLS_DIR / skill / "SKILL.md").read_text(), template):
+                    for pattern in template_patterns((SKILL_DIRS[skill] / "SKILL.md").read_text(), template):
                         self.assertRegex(text, pattern, f"{state}: {rel}")
 
                 for task in (tree / ".ndev/tasks").glob("*.md") if (tree / ".ndev/tasks").is_dir() else ():
-                    for pattern in template_patterns((SKILLS_DIR / "nplan/SKILL.md").read_text(), "Task template"):
+                    for pattern in template_patterns((SKILL_DIRS["nplan"] / "SKILL.md").read_text(), "Task template"):
                         self.assertRegex(task.read_text(), pattern, f"{state}: {task.name}")
 
     def test_work_overlay_is_uncommitted(self) -> None:
@@ -314,6 +331,16 @@ class CasesTest(unittest.TestCase):
         for case in cases:
             for spec in case.checks:
                 self.assertIn(spec["check"], checks.CHECKS, case.id)
+
+    def test_labels_render(self) -> None:
+        # A default label names every parameter it shows; a check that omits one needs its own label.
+        for case in load_cases():
+            for spec in case.checks:
+                if "label" in spec:
+                    continue
+                params = {k: v for k, v in spec.items() if k != "check"}
+                with self.subTest(case=case.id, check=spec["check"]):
+                    checks.CHECKS[spec["check"]][1].format(case=case, **params)
 
 
 if __name__ == "__main__":

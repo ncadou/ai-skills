@@ -1,0 +1,4 @@
+{
+  "extends": "nwork-working",
+  "description": "nwork-working, with T1 built (correct slugify and tests, uncommitted) and implemented: ready to review. T2 still waits for D4."
+}

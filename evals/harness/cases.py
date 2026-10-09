@@ -1,5 +1,15 @@
 """Load and validate eval cases from ``evals/ndev/<skill>/evals.json``.
 
+Two workflow formats are under test, each a bundle folder under ``skills/``:
+
+- ``ndev``: the six phase skills (``PHASES``), with ``.ndev/brief.md`` and
+  the other phase artifacts;
+- ``ndev-next``: the experimental ``nwork`` skill, with ``.ndev/now.md`` and
+  ``.ndev/items/`` (format ``ndev-next/1``).
+
+``BUNDLE`` maps each skill to its bundle. A run installs only the bundle of
+its case's skill, since a project uses one format at a time.
+
 File format::
 
     {
@@ -28,6 +38,11 @@ Modes:
 - ``delegated``: one turn; the prompt or ``brief.md`` § Control delegates the
   gates (or the skill has none). Approvals must name the delegation.
 - ``simulated``: several turns; a simulated user answers from ``user_script``.
+
+For ``nwork``, which has no phase gates, ``gate`` means that the prompt grants
+no authority, so the agent must stop where a choice needs the user, and
+``delegated`` means that the prompt or the working agreement grants what the
+case needs.
 """
 
 from __future__ import annotations
@@ -38,16 +53,33 @@ from pathlib import Path
 
 from harness.fixtures import list_states
 
-__all__ = ["CASES_DIR", "MODES", "SKILLS", "SKILLS_DIR", "WRITABLE", "Case", "load_cases"]
+__all__ = [
+    "BUNDLE",
+    "CASES_DIR",
+    "MODES",
+    "NWORK",
+    "PHASES",
+    "SKILLS",
+    "SKILLS_ROOT",
+    "SKILL_DIRS",
+    "WRITABLE",
+    "Case",
+    "load_cases",
+]
 
 EVALS_DIR = Path(__file__).resolve().parent.parent
 CASES_DIR = EVALS_DIR / "ndev"
-SKILLS_DIR = EVALS_DIR.parent / "skills" / "ndev"
-SKILLS = ("nstart", "nlearn", "ndesign", "nplan", "nbuild", "nreview")
+SKILLS_ROOT = EVALS_DIR.parent / "skills"
+PHASES = ("nstart", "nlearn", "ndesign", "nplan", "nbuild", "nreview")
+NWORK = "nwork"
+SKILLS = (*PHASES, NWORK)
+BUNDLE = {**dict.fromkeys(PHASES, "ndev"), NWORK: "ndev-next"}
+SKILL_DIRS = {skill: SKILLS_ROOT / BUNDLE[skill] / skill for skill in SKILLS}
 MODES = ("gate", "delegated", "simulated")
 
 # What each skill may write, from its "Produce only ..." line. Cases add to it
-# with "allow" (for example the one task file nbuild may edit).
+# with "allow" (for example the one task file nbuild may edit). nwork does
+# every phase's work, so it may write its records and the code.
 WRITABLE: dict[str, tuple[str, ...]] = {
     "nstart": (".ndev/brief.md", ".ndev/questions.md"),
     "nlearn": (".ndev/discovery.md", ".ndev/questions.md", ".ndev/scratch/*"),
@@ -55,6 +87,7 @@ WRITABLE: dict[str, tuple[str, ...]] = {
     "nplan": (".ndev/plan.md", ".ndev/tasks/*", ".ndev/questions.md"),
     "nbuild": ("textkit/*", "tests/*", "README.md", ".ndev/questions.md"),
     "nreview": (".ndev/questions.md",),
+    NWORK: (".ndev/now.md", ".ndev/items/*", "textkit/*", "tests/*", "README.md"),
 }
 
 
@@ -74,6 +107,11 @@ class Case:
     user_script: str = ""
     max_turns: int = 1
     tags: list[str] = field(default_factory=list)
+
+    @property
+    def bundle(self) -> str:
+        """The skill's bundle, which is also its workflow format: ``ndev`` or ``ndev-next``."""
+        return BUNDLE[self.skill]
 
     @property
     def writable(self) -> tuple[str, ...]:

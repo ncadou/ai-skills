@@ -5,8 +5,9 @@ Isolation matters: skills installed globally (``~/.agents/skills``,
 would all leak into the runs. Each run gets a fresh HOME with:
 
 - ``opencode.json``: the user's ``provider`` block only, all tool permissions
-  allowed except paths outside the work tree, and a tool-less ``evaluator``
-  agent for the judge and the simulated user;
+  allowed except paths outside the work tree (the installed skills stay
+  reachable, for their ``references/``), and a tool-less ``evaluator`` agent
+  for the judge and the simulated user;
 - ``auth.json`` (and ``~/.aws``) symlinked from the real HOME, for credentials;
 - ``skills/``: the skill folders under test, or nothing for a no-skill baseline.
 
@@ -77,7 +78,7 @@ def make_home(home: Path, skills: list[Path]) -> None:
     if aws.exists():
         (home / ".aws").symlink_to(aws)
 
-    (config_dir / "opencode.json").write_text(json.dumps(_config(), indent=2))
+    (config_dir / "opencode.json").write_text(json.dumps(_config(config_dir / "skills"), indent=2))
     for skill in skills:
         shutil.copytree(skill, config_dir / "skills" / skill.name)
 
@@ -150,8 +151,12 @@ def run_turn(
     return result
 
 
-def _config() -> dict:
-    """Build the isolated ``opencode.json`` from the user's provider settings."""
+def _config(skills_dir: Path) -> dict:
+    """Build the isolated ``opencode.json`` from the user's provider settings.
+
+    :param skills_dir: Where the skills under test are installed. Tools may
+        reach it, so that a skill can load its bundled ``references/``.
+    """
     try:
         providers = json.loads(_REAL_CONFIG.read_text()).get("provider", {})
     except (OSError, json.JSONDecodeError):
@@ -163,8 +168,12 @@ def _config() -> dict:
         "share": "disabled",
         "provider": providers,
         # Headless runs cannot answer permission prompts. Keep the agent inside
-        # its throwaway work tree instead.
-        "permission": {"*": "allow", "external_directory": "deny"},
+        # its throwaway work tree instead, except for the installed skills, so
+        # that a skill can read its references/. The last matching rule wins.
+        "permission": {
+            "*": "allow",
+            "external_directory": {"*": "deny", f"{skills_dir}/*": "allow"},
+        },
         "agent": {
             EVALUATOR_AGENT: {
                 "description": "Tool-less evaluator for the judge and the simulated user.",

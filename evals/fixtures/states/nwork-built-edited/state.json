@@ -1,0 +1,4 @@
+{
+  "extends": "nwork-built",
+  "description": "nwork-built, but textkit/slug.py was edited after the recorded build: _cut lost its word-end check, so slugify('hello world foo', max_length=11) gives 'hello' and T1's acceptance fails. The records still show the passing build of 2026-10-06."
+}

@@ -4,7 +4,7 @@ You grade one run of a coding agent in an automated test. The agent was asked to
 
 {description}
 
-Mode: {mode}. {mode_help}
+Mode: {mode}. {mode_help}{format_help}
 
 ## Simulated user script
 

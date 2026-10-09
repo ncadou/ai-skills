@@ -1,0 +1,4 @@
+{
+  "extends": "empty",
+  "description": "nwork, ndev-next/1: O1 slugify function, O2 slugify command; P1 active (focus errors, CLI behavior and acceptance reserved). T1 eligible; T2 waits for D4, a reserved CLI choice."
+}

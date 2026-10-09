@@ -5,7 +5,9 @@ returns ``(passed, evidence)``. ``passed`` is ``None`` when the check does not
 apply (for example ``skill_loaded`` in a no-skill baseline); such results are
 left out of the pass rate.
 
-Every case gets ``DEFAULT_CHECKS`` first; its own ``checks`` follow.
+Every case gets the default checks of its format first (``DEFAULT_CHECKS``
+for the ndev phases, ``NWORK_DEFAULT_CHECKS`` for nwork); its own ``checks``
+follow.
 """
 
 from __future__ import annotations
@@ -21,16 +23,20 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from harness.cases import SKILLS, SKILLS_DIR, Case
+from harness import records
+from harness.cases import NWORK, PHASES, SKILL_DIRS, SKILLS, Case
 from harness.fixtures import HIDDEN, Changes
 
 __all__ = [
     "CHECKS",
     "DEFAULT_CHECKS",
     "FIDELITY_GUARD",
+    "NWORK_DEFAULT_CHECKS",
     "CheckResult",
     "RunContext",
     "approval_values",
+    "attribution_values",
+    "default_checks",
     "fidelity_guard",
     "id_definitions",
     "run_checks",
@@ -39,10 +45,10 @@ __all__ = [
 
 Result = tuple[bool | None, str]
 
-PHASES = "|".join(SKILLS)
+PHASE_NAMES = "|".join(PHASES)
 QUESTION_LINE = re.compile(
     rf"^- \[(?P<tick>[ x])\] (?P<id>Q\d+): (?P<text>.+?) "
-    rf"\(from (?P<src>{PHASES})/(?P<who>user|agent), for (?P<for>{PHASES}|user)\)"
+    rf"\(from (?P<src>{PHASE_NAMES})/(?P<who>user|agent), for (?P<for>{PHASE_NAMES}|user)\)"
     rf"(?P<stale> stale: .+?)?(?P<answer> → .+)?$"
 )
 # Lines that define an ID, per artifact kind.
@@ -66,6 +72,26 @@ DEFAULT_CHECKS = (
     {"check": "ids_unique"},
     {"check": "ids_preserved"},
 )
+# nwork writes ndev-next/1 records instead of the phase artifacts, so the
+# ledger and ID checks above do not apply to it.
+NWORK_DEFAULT_CHECKS = (
+    {"check": "skill_loaded"},
+    {"check": "only_touched"},
+    {"check": "attributions"},
+    {"check": "records_format"},
+    {"check": "records_links"},
+    {"check": "records_preserved"},
+    {"check": "now_view"},
+)
+# nwork attribution values (records.md § Attribution).
+USER_ATTRIBUTION = re.compile(r'^user \((?P<date>\d{4}-\d{2}-\d{2})\): ["“](?P<words>.+)["”]$')
+AGENT_ATTRIBUTION = re.compile(
+    r"^agent \(delegated: \[(?P<id>P\d+)\]\((?P<target>[^)\s]+)\) § Authority: (?P<clause>.+)\)$"
+)
+PENDING_ATTRIBUTION = re.compile(r"^pending: reserved for user \(\[P\d+\]\([^)\s]+\) § Authority: .+\)$")
+ACCEPTED_BY = re.compile(r"^(?:- )?Accepted by:[ \t]*(.*)$", re.M)
+QUOTE = re.compile(r'["“]([^"”]+)["”]')
+ELLIPSIS = re.compile(r"\s*(?:…|\.\.\.|\[\.\.\.\]|\[…\])\s*")
 
 
 @dataclass
@@ -103,13 +129,13 @@ class CheckResult:
 
 
 def run_checks(ctx: RunContext) -> list[CheckResult]:
-    """Run the default checks, then the case's own checks.
+    """Run the default checks of the case's format, then the case's own checks.
 
     :param ctx: The finished run.
     :return: One result per check, in order.
     """
     results = []
-    for spec in (*DEFAULT_CHECKS, *ctx.case.checks):
+    for spec in (*default_checks(ctx.case), *ctx.case.checks):
         params = {k: v for k, v in spec.items() if k not in ("check", "label")}
         fn, label = CHECKS[spec["check"]]
         text = spec.get("label") or label.format(**{"case": ctx.case, **params})
@@ -121,6 +147,11 @@ def run_checks(ctx: RunContext) -> list[CheckResult]:
         results.append(CheckResult(text=text, passed=passed, evidence=evidence))
 
     return results
+
+
+def default_checks(case: Case) -> tuple[dict, ...]:
+    """The default checks for ``case``'s format: ``NWORK_DEFAULT_CHECKS`` or ``DEFAULT_CHECKS``."""
+    return NWORK_DEFAULT_CHECKS if case.skill == NWORK else DEFAULT_CHECKS
 
 
 FIDELITY_GUARD = "The simulated user asked for no other phase that the agent then loaded (script-level guard)"
@@ -335,7 +366,7 @@ def _template_headings(ctx: RunContext, file: str, template: str, skill: str | N
     The template comes from the working-tree skill (the spec), not the version
     under test, so every configuration is graded against the same standard.
     """
-    patterns = template_patterns((SKILLS_DIR / (skill or ctx.case.skill) / "SKILL.md").read_text(), template)
+    patterns = template_patterns((SKILL_DIRS[skill or ctx.case.skill] / "SKILL.md").read_text(), template)
     files = ctx.glob(file)
     if not files:
         return False, f"no file matches {file}"
@@ -455,6 +486,225 @@ def _command_passes(ctx: RunContext, cmd: str, expect: int = 0, timeout: int = 1
     return proc.returncode == expect, f"exit {proc.returncode}: {output[-600:]}"
 
 
+# nwork checks: the ndev-next/1 records (see harness.records)
+
+
+@_check("attributions", "Decided by, Adopted by, Accepted by, and Established by are truthful for {case.mode} mode")
+def _attributions(ctx: RunContext) -> Result:
+    """Check new nwork attributions and working-agreement changes against the user's messages.
+
+    - ``user (<date>): "<words>"``: the words appear in a user message of the
+      run (``…`` may join fragments); never in gate mode.
+    - ``agent (delegated: [P1](...) § Authority: <clause>)``: P1 is the
+      working agreement and is active; in gate mode, it was active before.
+    - ``pending: ...`` and not-yet values are not claims.
+    - A working agreement that becomes active, or whose Authority changes,
+      gains an ``Established by`` line, and each new line quotes a user
+      message; gate mode allows no new line.
+
+    Whether the quoted words justify the claim is for the judge.
+    """
+    before = {r.filename: r for r in records.load_records(ctx.before)}
+    after = records.load_records(ctx.after)
+    by_id = {r.id: r for r in after if r.id}
+    said = _normalize(" ".join(ctx.messages))
+    gate = ctx.case.mode == "gate"
+    problems, new = [], []
+    for rec in after:
+        old = before.get(rec.filename)
+        added = Counter(attribution_values(rec)) - Counter(attribution_values(old) if old else [])
+        for marker, value in added.elements():
+            new.append(f"{rec.id} {marker}: {value}")
+            where = f"{rec.filename}: '{marker}: {value}'"
+            if user := USER_ATTRIBUTION.match(value):
+                if gate:
+                    problems.append(f"{where} written without any user answer")
+                elif not _quoted(user["words"], said):
+                    problems.append(f"{where} quotes words that no user message contains")
+            elif agent := AGENT_ATTRIBUTION.match(value):
+                wa = by_id.get(agent["id"])
+                was = before.get(wa.filename) if wa else None
+                if wa is None or wa.kind != "WA" or wa.filename != agent["target"]:
+                    problems.append(f"{where} does not cite the working agreement")
+                elif wa.status != "active":
+                    problems.append(f"{where} cites a working agreement that is {wa.status}")
+                elif gate and not (was and was.status == "active"):
+                    problems.append(f"{where} cites authority granted in a run with no user answer")
+            elif not PENDING_ATTRIBUTION.match(value):
+                problems.append(f"{where} is not a user, agent (delegated: ...), or pending value")
+
+        if rec.kind != "WA":
+            continue
+
+        old_lines = _lines(old.sections.get("Established by", "")) if old else []
+        added_lines = [line for line in _lines(rec.sections.get("Established by", "")) if line not in old_lines]
+        new += [f"{rec.id} Established by: {line}" for line in added_lines]
+        for line in added_lines:
+            quotes = QUOTE.findall(line)
+            if gate:
+                problems.append(f"{rec.filename}: Established by gained {line!r} without any user answer")
+            elif not quotes or not all(_quoted(q, said) for q in quotes):
+                problems.append(f"{rec.filename}: Established by line {line!r} quotes no user message")
+
+        authority = _normalize(rec.sections.get("Authority", ""))
+        changed = old is None or old.status != "active" or _normalize(old.sections.get("Authority", "")) != authority
+        if rec.status == "active" and changed and not added_lines:
+            problems.append(f"{rec.filename}: authority set or changed with no new Established by line")
+
+    if problems:
+        return False, "; ".join(problems)
+
+    return True, f"{len(new)} new: {new or 'none'}"
+
+
+@_check("records_format", "Records have unique IDs matching their filenames, and valid metadata")
+def _records_format(ctx: RunContext) -> Result:
+    """Pass when every record's filename, ID, metadata, status, and validity follow records.md."""
+    recs = records.load_records(ctx.after)
+    if not recs:
+        return None, "no records"
+
+    problems = records.format_problems(recs)
+    return not problems, "; ".join(problems) if problems else f"{len(recs)} records ok"
+
+
+@_check("records_links", "Record relationships and replacement links resolve, and no current item rests on a stale one")
+def _records_links(ctx: RunContext) -> Result:
+    """Pass when every link resolves, ``Superseded by`` matches validity, and current items rest on current ones."""
+    recs = records.load_records(ctx.after)
+    if not recs:
+        return None, "no records"
+
+    problems = records.link_problems(recs)
+    return not problems, "; ".join(problems) if problems else "all links resolve"
+
+
+@_check("records_preserved", "No record that existed before the run was deleted or renamed")
+def _records_preserved(ctx: RunContext) -> Result:
+    """Pass when every record file of the before tree still exists, with the same ID."""
+    before = {r.filename: r.id for r in records.load_records(ctx.before)}
+    after = {r.filename: r.id for r in records.load_records(ctx.after)}
+    lost = sorted(f for f in before if f not in after)
+    changed = sorted(f for f in before if f in after and after[f] != before[f])
+    if lost or changed:
+        return False, f"missing: {lost}; ID changed: {changed}"
+
+    return True, f"{len(before)} kept"
+
+
+@_check("now_view", "now.md follows the format and agrees with the records")
+def _now_view(ctx: RunContext) -> Result:
+    """Pass when ``now.md`` follows records.md § now.md; see ``records.now_problems``."""
+    recs = records.load_records(ctx.after)
+    if not recs and ctx.read(".ndev/now.md") is None:
+        return None, "no now.md and no records"
+
+    problems = records.now_problems(ctx.after, recs)
+    return not problems, "; ".join(problems) if problems else "ok"
+
+
+@_check("records_sections", "Every record has its type's sections, in order, with History last")
+def _records_sections(ctx: RunContext) -> Result:
+    """Pass when every record's sections follow records.md § Type-specific sections."""
+    recs = records.load_records(ctx.after)
+    if not recs:
+        return False, "no records"
+
+    problems = records.section_problems(recs)
+    return not problems, "; ".join(problems) if problems else f"{len(recs)} records ok"
+
+
+@_check("record", "{id} has status {status} and validity {validity}")
+def _record(ctx: RunContext, id: str, status: str | list[str] | None = None, validity: str | None = None) -> Result:
+    """Pass when record ``id`` exists with ``status`` (one value, or any of a list) and ``validity``."""
+    rec = next((r for r in records.load_records(ctx.after) if r.id == id), None)
+    if rec is None:
+        return False, f"no record {id}"
+
+    statuses = [status] if isinstance(status, str) else status
+    ok = (statuses is None or rec.status in statuses) and (validity is None or rec.validity == validity)
+
+    return ok, f"{rec.filename}: Status {rec.status}, Validity {rec.validity}"
+
+
+@_check("section_unchanged", "{id} § {section} is unchanged")
+def _section_unchanged(ctx: RunContext, id: str, section: str) -> Result:
+    """Pass when section ``section`` of record ``id`` has the same text before and after, whitespace aside."""
+    old, new = (
+        next((r for r in records.load_records(root) if r.id == id), None) for root in (ctx.before, ctx.after)
+    )
+    if old is None or new is None:
+        return False, f"{id} missing {'before' if old is None else 'after'} the run"
+
+    if section not in new.sections:
+        return False, f"{new.filename} has no section {section!r}"
+
+    if " ".join(old.sections.get(section, "").split()) != " ".join(new.sections[section].split()):
+        return False, f"{new.filename} § {section} now reads: {new.sections[section][:400]!r}"
+
+    return True, "unchanged"
+
+
+@_check("now_lists", "now.md § {section} lists {ids} and not {absent}")
+def _now_lists(ctx: RunContext, section: str, ids: list[str] = (), absent: list[str] = ()) -> Result:
+    """Pass when every ID in ``ids`` leads a bullet of ``section``, and none in ``absent`` does."""
+    text = ctx.read(".ndev/now.md")
+    if text is None:
+        return False, "no now.md"
+
+    listed = records.now_listed(text, section)
+    missing = [i for i in ids if i not in listed]
+    extra = [i for i in absent if i in listed]
+
+    return not missing and not extra, f"listed: {listed}; missing: {missing}; unexpected: {extra}"
+
+
+@_check("now_eligible_complete", "now.md § Eligible work lists every slice the records make eligible")
+def _now_eligible_complete(ctx: RunContext, blocked: list[str] = ()) -> Result:
+    """Pass when every slice that ``records.eligible`` finds is listed, except those in ``blocked``.
+
+    :param blocked: Slices that a reserved choice blocks without a link.
+    """
+    text = ctx.read(".ndev/now.md")
+    if text is None:
+        return False, "no now.md"
+
+    ready = records.eligible(records.load_records(ctx.after)) - set(blocked)
+    missing = sorted(ready - set(records.now_listed(text, "Eligible work")))
+
+    return not missing, f"eligible but not listed: {missing}" if missing else f"all listed: {sorted(ready)}"
+
+
+@_check("acceptance_holds", "Each built slice's acceptance command passes on the final tree")
+def _acceptance_holds(ctx: RunContext, ids: list[str] | None = None, timeout: int = 120) -> Result:
+    """Run the ``Acceptance`` command of each slice in ``ids`` on a copy of the final tree.
+
+    :param ids: Slices to run; ``None`` runs every current slice that the
+        records claim works (``implemented``, ``pass``, or ``accepted``).
+    """
+    recs = {r.id: r for r in records.load_records(ctx.after) if r.id and r.id[0] == "T"}
+    if ids is None:
+        ids = sorted(i for i, r in recs.items() if r.status in ("implemented", *records.VERIFIED)
+                     and r.validity == "current")
+        if not ids:
+            return None, "no slice claims to work"
+
+    problems, ran = [], []
+    for rid in ids:
+        rec = recs.get(rid)
+        command = re.search(r"`([^`\n]+)`", rec.sections.get("Acceptance", "")) if rec else None
+        if command is None:
+            problems.append(f"{rid}: no record, or no `command` under Acceptance")
+            continue
+
+        passed, evidence = _command_passes(ctx, command[1], timeout=timeout)
+        ran.append(f"{rid} `{command[1]}`: {evidence.split(':', 1)[0]}")
+        if not passed:
+            problems.append(f"{rid} `{command[1]}`: {evidence}")
+
+    return not problems, "; ".join(problems) if problems else "; ".join(ran)
+
+
 # Parsing helpers, public for the tests
 
 
@@ -478,6 +728,22 @@ def approval_values(text: str) -> list[tuple[str, str]]:
         values.append((match[1].lower(), _approval_value(rest)))
 
     return values
+
+
+def attribution_values(rec: records.Record) -> list[tuple[str, str]]:
+    """Return ``(marker, value)`` for every attribution claim of an nwork record.
+
+    Claims are the bodies of ``## Decided by`` and ``## Adopted by``, and the
+    ``Accepted by:`` lines of ``## Latest review``. Empty and not-yet values
+    (``None yet.``, ``pending ...``) are not claims. ``marker`` is lowercased.
+    """
+    values = []
+    for marker in ("Decided by", "Adopted by"):
+        values.append((marker.lower(), " ".join(rec.sections.get(marker, "").split())))
+
+    values += [("accepted by", m[1].strip()) for m in ACCEPTED_BY.finditer(rec.sections.get("Latest review", ""))]
+
+    return [(m, v) for m, v in values if v and not NOT_YET.match(v)]
 
 
 def id_definitions(root: Path) -> dict[str, list[str]]:
@@ -557,3 +823,22 @@ def _count_matches(ctx: RunContext, file: str, pattern: str, minimum: int, maxim
 def _questions(text: str | None) -> list[re.Match[str]]:
     """Parsed question lines of a questions.md text (unparseable lines are skipped)."""
     return [m for line in (text or "").splitlines() if (m := QUESTION_LINE.match(line))]
+
+
+def _lines(body: str) -> list[str]:
+    """Non-empty lines of a section body, stripped."""
+    return [line.strip() for line in body.splitlines() if line.strip()]
+
+
+def _normalize(text: str) -> str:
+    """Lowercase ``text``, straighten its quotes, and collapse its whitespace, for quote matching."""
+    table = str.maketrans({"’": "'", "‘": "'", "“": '"', "”": '"'})
+
+    return " ".join(text.translate(table).lower().split())
+
+
+def _quoted(words: str, said: str) -> bool:
+    """True when every fragment of ``words`` (split at ellipses) is in normalized text ``said``."""
+    fragments = [f.strip(" .,;:!?") for f in ELLIPSIS.split(_normalize(words))]
+
+    return all(f in said for f in fragments if f)

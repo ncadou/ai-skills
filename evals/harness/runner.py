@@ -12,7 +12,9 @@ Run folder layout (``<iteration>/<case id>/<config>/run-<n>/``):
 - ``grading.json``: script and judge results (written by ``grade_run``).
 
 Configurations: ``with_skill`` installs the working-tree skills; ``no_skill``
-installs none; ``rev-<sha>`` installs every skill under ``skills/`` at a git revision.
+installs none; ``rev-<sha>`` installs the skills under ``skills/`` at a git
+revision. Either way, only the bundle of the case's skill is installed: the
+ndev phase skills, or nwork with its references.
 """
 
 from __future__ import annotations
@@ -28,14 +30,35 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from harness.agent import EVALUATOR_AGENT, TurnResult, make_home, run_turn
-from harness.cases import SKILLS_DIR, Case
+from harness.cases import BUNDLE, SKILLS_ROOT, Case
 from harness.checks import RunContext, fidelity_guard, run_checks
 from harness.fixtures import copy_tree, diff_trees, materialize
 from harness.judge import judge_run
 
-__all__ = ["FAILED", "Config", "Settings", "execute_run", "grade_run", "load_context", "rev_config", "simulated_reply"]
+__all__ = [
+    "FAILED", "Config", "Settings", "execute_run", "grade_run", "load_context", "rev_config", "simulated_reply",
+    "user_prompt",
+]
 
 USER_PROMPT = (Path(__file__).resolve().parent.parent / "prompts" / "simulated_user.md").read_text()
+# The simulated user's rule on staying inside the test, per bundle. ndev tests
+# one phase; nwork moves between phases by itself, so only the work is bounded.
+SCOPE_RULES = {
+    "ndev": (
+        "This test covers only the `{skill}` phase. Never ask the agent for work the script does not ask for. "
+        "In particular, never ask it to run, start, or proceed to another phase or skill (`nstart`, `nlearn`, "
+        "`ndesign`, `nplan`, `nbuild`, `nreview`), unless the script tells you to. When the agent suggests or "
+        "names a next phase, that is for later: if the script has nothing left for you to say, reply `<<DONE>>`."
+    ),
+    "ndev-next": (
+        "This test covers the `{skill}` skill, which investigates, decides, builds, and reviews by itself, within "
+        "a working agreement. Never ask the agent for work the script does not ask for, and never ask it to use "
+        "another skill (`nstart`, `nlearn`, `ndesign`, `nplan`, `nbuild`, `nreview`). Never change what the agent "
+        "may decide (focus, authority, or detail) unless the script tells you to. When the agent proposes a next "
+        "action that the script does not cover, that is for later: if the script has nothing left for you to say, "
+        "reply `<<DONE>>`."
+    ),
+}
 DONE = "<<DONE>>"
 # How a run ends when infrastructure failed; such runs are reruns, not results.
 FAILED = ("error", "timeout", "user_error")
@@ -50,7 +73,7 @@ TMP_ROOT = Path(tempfile.gettempdir()) / "ndev-work"
 
 @dataclass(frozen=True)
 class Config:
-    """A configuration: skills (``skills_dir``; ``None``: no skill) and, optionally, the agent model.
+    """A configuration: skills (``skills_dir``, a ``skills/`` tree; ``None``: no skill) and, optionally, the agent model.
 
     ``label`` names the run folder. With several agent models it reads
     ``<skills>@<model>``, for example ``with_skill@glm-5.3-flash``.
@@ -65,14 +88,20 @@ class Config:
         """The skills part of the label: ``with_skill``, ``no_skill``, or ``rev-<sha>``."""
         return self.label.split("@")[0]
 
-    @property
-    def skills(self) -> list[Path]:
-        """Skill folders to install."""
+    def skills_for(self, skill: str) -> list[Path]:
+        """Skill folders to install for a case of ``skill``: every skill of its bundle.
+
+        A whole skill folder is installed, so nwork's ``references/`` comes with it.
+        """
         if self.skills_dir is None:
             return []
 
-        # Any depth: older revisions keep skills at skills/<name>/, newer at skills/ndev/<name>/.
-        return sorted(p.parent for p in self.skills_dir.rglob("SKILL.md"))
+        bundle = BUNDLE[skill]
+        names = {s for s, b in BUNDLE.items() if b == bundle}
+        # Older revisions keep the ndev skills at skills/<name>/, newer ones at skills/ndev/<name>/.
+        root = self.skills_dir / bundle if (self.skills_dir / bundle).is_dir() else self.skills_dir
+
+        return sorted(p.parent for p in root.rglob("SKILL.md") if p.parent.name in names)
 
 
 @dataclass(frozen=True)
@@ -93,7 +122,7 @@ def rev_config(rev: str, cache: Path) -> Config:
     :param cache: Folder to extract into.
     :raises subprocess.CalledProcessError: When the revision or path is unknown.
     """
-    repo = SKILLS_DIR.parent.parent
+    repo = SKILLS_ROOT.parent
     sha = subprocess.run(
         ["git", "rev-parse", "--short", rev], cwd=repo, check=True, capture_output=True, text=True
     ).stdout.strip()
@@ -134,7 +163,7 @@ def execute_run(case: Case, config: Config, run_dir: Path, settings: Settings) -
         materialize(case.state, work)
         base = _git(work, "rev-parse", "HEAD").strip()
         copy_tree(work, run_dir / "before")
-        make_home(home, config.skills)
+        make_home(home, config.skills_for(case.skill))
 
         prompt, session = case.prompt, None
         for number in range(1, case.max_turns + 1):
@@ -295,7 +324,7 @@ def simulated_reply(case: Case, messages: list[str], texts: list[list[str]], tmp
     for delay in (0, *RETRY_DELAYS_S):
         time.sleep(delay)
         turn = run_turn(
-            USER_PROMPT.format(skill=case.skill, script=case.user_script, conversation=conversation),
+            user_prompt(case, conversation),
             workdir=scratch, home=home, model=model, agent=EVALUATOR_AGENT, timeout_s=180,
         )
         reply = "\n".join(turn.texts).strip()
@@ -305,6 +334,21 @@ def simulated_reply(case: Case, messages: list[str], texts: list[list[str]], tmp
         last = f"exit {turn.returncode}, timed out {turn.timed_out}: {turn.stderr[-300:]}"
 
     raise SimulatedUserError(f"simulated user failed {1 + len(RETRY_DELAYS_S)} times; last: {last}")
+
+
+def user_prompt(case: Case, conversation: str) -> str:
+    """Fill the simulated-user template for ``case``, with its bundle's scope rule.
+
+    :param case: The case; its ``user_script`` drives the reply.
+    :param conversation: The conversation so far, rendered as text.
+    :return: The prompt for the user model.
+    """
+    return USER_PROMPT.format(
+        skill=case.skill,
+        script=case.user_script,
+        conversation=conversation,
+        scope_rule=SCOPE_RULES[case.bundle].format(skill=case.skill),
+    )
 
 
 def _write_turn(run_dir: Path, number: int, turn: TurnResult) -> None:

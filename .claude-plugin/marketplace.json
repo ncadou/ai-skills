@@ -18,6 +18,15 @@
         "./nbuild",
         "./nreview"
       ]
+    },
+    {
+      "name": "ndev-next",
+      "description": "Experimental successor to ndev: one skill, nwork, working from a current-state view and a working agreement.",
+      "source": "./skills/ndev-next",
+      "strict": false,
+      "skills": [
+        "./nwork"
+      ]
     }
   ]
 }
