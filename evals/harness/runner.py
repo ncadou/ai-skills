@@ -7,7 +7,7 @@ Run folder layout (``<iteration>/<case id>/<config>/run-<n>/``):
 - ``messages.json``: the user message of each turn (prompt, then simulated replies);
 - ``conversation.md``: readable transcript (messages, tool calls, command output);
 - ``changes.json``: created, modified, deleted paths;
-- ``final.diff``: code diff against the base commit (``.ndev/`` left out);
+- ``final.diff``: code diff against the base commit (the state folder left out);
 - ``metrics.json``: turns, tokens, cost, duration, tool calls, how it ended;
 - ``grading.json``: script and judge results (written by ``grade_run``).
 
@@ -50,7 +50,7 @@ SCOPE_RULES = {
         "`ndesign`, `nplan`, `nbuild`, `nreview`), unless the script tells you to. When the agent suggests or "
         "names a next phase, that is for later: if the script has nothing left for you to say, reply `<<DONE>>`."
     ),
-    "ndev-next": (
+    "nwork": (
         "This test covers the `{skill}` skill, which investigates, decides, builds, and reviews by itself, within "
         "a working agreement. Never ask the agent for work the script does not ask for, and never ask it to use "
         "another skill (`nstart`, `nlearn`, `ndesign`, `nplan`, `nbuild`, `nreview`). Never change what the agent "
@@ -98,7 +98,8 @@ class Config:
 
         bundle = BUNDLE[skill]
         names = {s for s, b in BUNDLE.items() if b == bundle}
-        # Older revisions keep the ndev skills at skills/<name>/, newer ones at skills/ndev/<name>/.
+        # Older revisions keep the skills at skills/<name>/ or skills/ndev-next/nwork/, newer ones at
+        # skills/ndev/<name>/ and skills/nwork/.
         root = self.skills_dir / bundle if (self.skills_dir / bundle).is_dir() else self.skills_dir
 
         return sorted(p.parent for p in root.rglob("SKILL.md") if p.parent.name in names)
@@ -196,7 +197,7 @@ def execute_run(case: Case, config: Config, run_dir: Path, settings: Settings) -
 
         copy_tree(work, run_dir / "after")
         _git(work, "add", "-A")
-        diff = _git(work, "diff", "--cached", "--no-color", base, "--", ".", ":(exclude).ndev")
+        diff = _git(work, "diff", "--cached", "--no-color", base, "--", ".", f":(exclude){case.state_dir}")
         (run_dir / "final.diff").write_text(diff)
     except SimulatedUserError as exc:
         ended, error = "user_error", str(exc)

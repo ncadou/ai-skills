@@ -1,4 +1,4 @@
-"""Build fixture work trees from the toy repo and layered ``.ndev/`` states.
+"""Build fixture work trees from the toy repo and layered ``.ndev/`` and ``.nwork/`` states.
 
 A state is a folder under ``fixtures/states/<name>/`` with:
 

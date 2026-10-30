@@ -30,6 +30,8 @@ EVALUATOR_AGENT = "evaluator"
 
 _REAL_HOME = Path.home()
 _REAL_CONFIG = _REAL_HOME / ".config" / "opencode" / "opencode.json"
+# Documentation inside a skill folder, never installed for a run.
+_DOCS = shutil.ignore_patterns("README.md", "examples")
 
 
 @dataclass
@@ -80,7 +82,8 @@ def make_home(home: Path, skills: list[Path]) -> None:
 
     (config_dir / "opencode.json").write_text(json.dumps(_config(config_dir / "skills"), indent=2))
     for skill in skills:
-        shutil.copytree(skill, config_dir / "skills" / skill.name)
+        # nwork's README.md and examples/ are documentation only: leave them out, as before nwork had its own folder.
+        shutil.copytree(skill, config_dir / "skills" / skill.name, ignore=_DOCS)
 
 
 def run_turn(

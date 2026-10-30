@@ -20,12 +20,12 @@
       ]
     },
     {
-      "name": "ndev-next",
-      "description": "Experimental successor to ndev: one skill, nwork, working from a current-state view and a working agreement.",
-      "source": "./skills/ndev-next",
+      "name": "nwork",
+      "description": "One-skill dev workflow, nwork: works from a current-state view and a working agreement, with state under .nwork/.",
+      "source": "./skills/nwork",
       "strict": false,
       "skills": [
-        "./nwork"
+        "./"
       ]
     }
   ]

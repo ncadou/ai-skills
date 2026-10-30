@@ -72,7 +72,7 @@ DEFAULT_CHECKS = (
     {"check": "ids_unique"},
     {"check": "ids_preserved"},
 )
-# nwork writes ndev-next/1 records instead of the phase artifacts, so the
+# nwork writes nwork/1 records instead of the phase artifacts, so the
 # ledger and ID checks above do not apply to it.
 NWORK_DEFAULT_CHECKS = (
     {"check": "skill_loaded"},
@@ -486,7 +486,7 @@ def _command_passes(ctx: RunContext, cmd: str, expect: int = 0, timeout: int = 1
     return proc.returncode == expect, f"exit {proc.returncode}: {output[-600:]}"
 
 
-# nwork checks: the ndev-next/1 records (see harness.records)
+# nwork checks: the nwork/1 records (see harness.records)
 
 
 @_check("attributions", "Decided by, Adopted by, Accepted by, and Established by are truthful for {case.mode} mode")
@@ -596,7 +596,7 @@ def _records_preserved(ctx: RunContext) -> Result:
 def _now_view(ctx: RunContext) -> Result:
     """Pass when ``now.md`` follows records.md § now.md; see ``records.now_problems``."""
     recs = records.load_records(ctx.after)
-    if not recs and ctx.read(".ndev/now.md") is None:
+    if not recs and ctx.read(".nwork/now.md") is None:
         return None, "no now.md and no records"
 
     problems = records.now_problems(ctx.after, recs)
@@ -648,7 +648,7 @@ def _section_unchanged(ctx: RunContext, id: str, section: str) -> Result:
 @_check("now_lists", "now.md § {section} lists {ids} and not {absent}")
 def _now_lists(ctx: RunContext, section: str, ids: list[str] = (), absent: list[str] = ()) -> Result:
     """Pass when every ID in ``ids`` leads a bullet of ``section``, and none in ``absent`` does."""
-    text = ctx.read(".ndev/now.md")
+    text = ctx.read(".nwork/now.md")
     if text is None:
         return False, "no now.md"
 
@@ -665,7 +665,7 @@ def _now_eligible_complete(ctx: RunContext, blocked: list[str] = ()) -> Result:
 
     :param blocked: Slices that a reserved choice blocks without a link.
     """
-    text = ctx.read(".ndev/now.md")
+    text = ctx.read(".nwork/now.md")
     if text is None:
         return False, "no now.md"
 

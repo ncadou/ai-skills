@@ -1,12 +1,12 @@
 # nwork: Phase 4 assessment
 
-Behavioral evaluation of the experimental `nwork` skill (`skills/ndev-next/nwork/`), Phase 4 of `ndev-next-pilot-plan.md`. Date: 2026-10-13.
+Behavioral evaluation of the experimental `nwork` skill (now `skills/nwork/`), Phase 4 of `ndev-next-pilot-plan.md`. Date: 2026-10-13. Paths and names are updated to the current layout: records under `.nwork/`, format `nwork/1`.
 
 ## Setup
 
 - Agent: `ssnc-prod/zai-org/GLM-5.3-Flash` (the cheaper model). Simulated user: the same model. Judge: `ssnc-prod-claude/us.anthropic.claude-opus-5-5`. No `opencode/` model was used; each `iteration.json` confirms it.
-- Six cases in `ndev/nwork/evals.json`, one per behavior. See [README § nwork](README.md#nwork) for the cases and states.
-- Baseline: `no_skill` has the same prompt and fixture, but no skill installed. It still sees the existing `.ndev/` records and copies their format, so it scores well on format checks. Compare the behavior, not only the totals.
+- Six cases in `nwork/evals.json`, one per behavior. See [README § nwork](README.md#nwork) for the cases and states.
+- Baseline: `no_skill` has the same prompt and fixture, but no skill installed. It still sees the existing `.nwork/` records and copies their format, so it scores well on format checks. Compare the behavior, not only the totals.
 - Transcripts and grades are in `evals-workspace/` (gitignored). Each link below goes to a `conversation.md`. `grading.json` in the same folder gives the evidence for each check.
 
 | Iteration | What ran | Skill version |
@@ -65,7 +65,7 @@ Each failure below was traced to its cause before the fix.
 | Final report: words (lines) | Brief case 52 to 70 (2). Status reports 176 to 386 (5 to 18) | 35 to 435 |
 | Verification as observed | Every built or reviewed slice cites a command it ran in the session. One brief report did not mention the stale build | The baseline reran the tests, but did not record the fail |
 | Resume accuracy | 6 of 6 runs (`nwork-3` to `nwork-5`) rebuilt the stale `now.md`, named D6 and D4, and named the revalidation | 0 of 2 runs repaired the stale `now.md` |
-| Record churn per run: records new/changed, `.ndev` lines | Contradiction 1–3 new and 5–8 changed, 57–109 lines. Principles 2–4 new, 118–165 lines. Others 1–2 changed, 10–19 lines | Contradiction 30–39 lines |
+| Record churn per run: records new/changed, `.nwork` lines | Contradiction 1–3 new and 5–8 changed, 57–109 lines. Principles 2–4 new, 118–165 lines. Others 1–2 changed, 10–19 lines | Contradiction 30–39 lines |
 | Tokens (mean), duration (mean), `nwork-3` | 495k, 363 s | 267k, 308 s |
 | Cost | Not reported: the provider returns $0 | Same |
 
@@ -84,8 +84,8 @@ No core authority failure remains in the final runs: no unattributed user decisi
 
 ## Proposed follow-ups
 
-- Bundle the `ndev-next/1` record checks as a script in `nwork/` (from `harness/records.py`), and have Maintain state run it. Most of the remaining slips are mechanical, so a script would catch them. It adds a runtime dependency on Python.
-- The skill tool loads all of SKILL.md (now 176 lines). Every section that a case exercises shows up in some transcript, and most fixes went to `Revision` and `Reporting`. No case covers `Start`, from an empty `.ndev/`; Phase 5 covers it.
+- Bundle the `nwork/1` record checks as a script in `nwork/` (from `harness/records.py`), and have Maintain state run it. Most of the remaining slips are mechanical, so a script would catch them. It adds a runtime dependency on Python.
+- The skill tool loads all of SKILL.md (now 176 lines). Every section that a case exercises shows up in some transcript, and most fixes went to `Revision` and `Reporting`. No case covers `Start`, from an empty `.nwork/`; Phase 5 covers it.
 - `attributions` matched every quote in these runs: no agent paraphrased the user.
 
 ## Addendum: Phase 4b, the narrower revalidation rule

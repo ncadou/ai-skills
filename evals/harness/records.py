@@ -1,6 +1,6 @@
-"""The ``ndev-next/1`` record checks, loaded from the copy that ``nwork`` bundles.
+"""The ``nwork/1`` record checks, loaded from the copy that ``nwork`` bundles.
 
-The code lives in ``skills/ndev-next/nwork/scripts/check_records.py``: the
+The code lives in ``skills/nwork/scripts/check_records.py``: the
 installed skill runs it alone, so it must live inside the skill folder. This
 module executes that file and re-exports all its names, private helpers
 included (``harness.checks`` uses ``VERIFIED``), so the harness has one copy of

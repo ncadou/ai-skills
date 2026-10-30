@@ -23,8 +23,8 @@ from harness.judge import FORMAT_HELP, MODE_HELP, NWORK_MODE_HELP
 from harness.runner import Config, user_prompt
 from tests.test_checks import _case
 
-EXAMPLE = SKILLS_ROOT / "ndev-next" / "examples" / "resumable-import" / "snapshots"
-ITEMS = ".ndev/items"
+EXAMPLE = SKILLS_ROOT / "nwork" / "examples" / "resumable-import" / "snapshots"
+ITEMS = ".nwork/items"
 
 
 def _nwork_case(**overrides: object):
@@ -50,7 +50,7 @@ class _NworkTreeTest(unittest.TestCase):
 
     def path(self, name: str) -> Path:
         """Path of the record file ``name`` (or of ``now.md``) in the after tree."""
-        return self.after / ".ndev" / name if name == "now.md" else self.after / ITEMS / name
+        return self.after / ".nwork" / name if name == "now.md" else self.after / ITEMS / name
 
     def edit(self, name: str, old: str, new: str) -> None:
         """Replace ``old`` with ``new`` once in a record (or ``now.md``) of the after tree."""
@@ -128,8 +128,8 @@ class CheckerScriptTest(unittest.TestCase):
     def test_reports_each_problem(self) -> None:
         t1 = self.project / ITEMS / "T1-progress-line.md"
         t1.write_text(t1.read_text().replace("Validity: current", "Validity: stale", 1))
-        (self.project / ".ndev" / "now.md").write_text(
-            (self.project / ".ndev" / "now.md").read_text() + "\nSee [T9](items/T9-missing.md).\n")
+        (self.project / ".nwork" / "now.md").write_text(
+            (self.project / ".nwork" / "now.md").read_text() + "\nSee [T9](items/T9-missing.md).\n")
         result = self.run_script(str(self.project))
         self.assertEqual(result.returncode, 1)
         lines = result.stdout.splitlines()
@@ -139,18 +139,18 @@ class CheckerScriptTest(unittest.TestCase):
         self.assertFalse(any(line.startswith("ok:") for line in lines))
 
     def test_matches_the_harness(self) -> None:
-        (self.project / ".ndev" / "now.md").write_text("# Now: x\n")
+        (self.project / ".nwork" / "now.md").write_text("# Now: x\n")
         result = self.run_script(str(self.project))
         self.assertEqual(result.returncode, 1)
         self.assertEqual(result.stdout.splitlines(), records.problems(self.project))
 
-    def test_without_ndev_folder(self) -> None:
+    def test_without_nwork_folder(self) -> None:
         empty = Path(self._tmp.name) / "empty"
         empty.mkdir()
         result = self.run_script(str(empty))
         self.assertEqual(result.returncode, 2)
         self.assertEqual(result.stdout, "")
-        self.assertIn("no .ndev/ folder", result.stderr)
+        self.assertIn("no .nwork/ folder", result.stderr)
 
     def test_harness_loads_the_bundled_copy(self) -> None:
         self.assertEqual(records.SCRIPT, SKILL_DIRS[NWORK] / "scripts" / "check_records.py")
@@ -281,7 +281,7 @@ class NowViewTest(_NworkTreeTest):
         self.assertTrue(self.check("now_view")[0])
 
     def test_format_line(self) -> None:
-        self.edit("now.md", "Format: ndev-next/1", "Format: ndev")
+        self.edit("now.md", "Format: nwork/1", "Format: ndev")
         self.assertFalse(self.check("now_view")[0])
 
     def test_section_order(self) -> None:
@@ -323,7 +323,7 @@ class NowViewTest(_NworkTreeTest):
         self.assertFalse(self.check("now_view")[0])
 
     def test_not_applicable_without_records(self) -> None:
-        shutil.rmtree(self.after / ".ndev")
+        shutil.rmtree(self.after / ".nwork")
         self.assertIsNone(self.check("now_view")[0])
         self.assertIsNone(self.check("records_format")[0])
 
@@ -430,7 +430,7 @@ class AttributionsTest(_NworkTreeTest):
 
     def test_agent_claim_in_gate_needs_prior_agreement(self) -> None:
         self.edit("P1-working-agreement.md", "Status: active", "Status: proposed")
-        shutil.copytree(self.after / ".ndev", self.before / ".ndev", dirs_exist_ok=True)
+        shutil.copytree(self.after / ".nwork", self.before / ".nwork", dirs_exist_ok=True)
         self.edit("P1-working-agreement.md", "Status: proposed", "Status: active")
         self.edit("P1-working-agreement.md", "## History", '- 2026-10-13, user: "Use the nwork skill."\n\n## History')
         self._decide_d4("agent (delegated: [P1](P1-working-agreement.md) § Authority: internal naming)")
@@ -526,7 +526,8 @@ class DefaultsTest(unittest.TestCase):
         self.assertNotIn("questions_format", names)
         for case in load_cases(skills=[NWORK]):
             self.assertIs(default_checks(case), NWORK_DEFAULT_CHECKS)
-            self.assertEqual(case.bundle, "ndev-next")
+            self.assertEqual(case.bundle, "nwork")
+            self.assertEqual(case.state_dir, ".nwork")
 
     def test_run_checks_uses_case_defaults(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -549,7 +550,7 @@ class DefaultsTest(unittest.TestCase):
             ctx = RunContext(case=_nwork_case(), config="with_skill", before=before, after=after,
                              changes=diff_trees(before, after))
             self.assertTrue(checks.CHECKS["only_touched"][0](ctx)[0])
-            (after / ".ndev" / "brief.md").write_text("x")
+            (after / ".nwork" / "brief.md").write_text("x")
             ctx.changes = diff_trees(before, after)
             self.assertFalse(checks.CHECKS["only_touched"][0](ctx)[0])
 
@@ -575,6 +576,8 @@ class InstallTest(unittest.TestCase):
             self.assertEqual(sorted(p.name for p in installed.iterdir()), [NWORK])
             self.assertTrue((installed / NWORK / "references" / "records.md").is_file())
             self.assertTrue((installed / NWORK / "scripts" / "check_records.py").is_file())
+            self.assertFalse((installed / NWORK / "examples").exists())
+            self.assertFalse((installed / NWORK / "README.md").exists())
             # Every relative link of the installed SKILL.md and references resolves inside the installed folder.
             for doc in (installed / NWORK).rglob("*.md"):
                 text = re.sub(r"^```.*?^```", "", doc.read_text(), flags=re.M | re.S)
@@ -604,7 +607,7 @@ class InstallTest(unittest.TestCase):
 
     def test_bundle_map(self) -> None:
         self.assertEqual({BUNDLE[s] for s in PHASES}, {"ndev"})
-        self.assertEqual(BUNDLE[NWORK], "ndev-next")
+        self.assertEqual(BUNDLE[NWORK], "nwork")
         for skill, folder in SKILL_DIRS.items():
             self.assertTrue((folder / "SKILL.md").is_file(), skill)
 
@@ -623,7 +626,7 @@ class PromptsTest(unittest.TestCase):
 
     def test_judge_context(self) -> None:
         self.assertEqual(FORMAT_HELP["ndev"], "")
-        self.assertIn("ndev-next/1", FORMAT_HELP["ndev-next"])
+        self.assertIn("nwork/1", FORMAT_HELP["nwork"])
         self.assertEqual(NWORK_MODE_HELP["simulated"], MODE_HELP["simulated"])
         self.assertNotEqual(NWORK_MODE_HELP["gate"], MODE_HELP["gate"])
 

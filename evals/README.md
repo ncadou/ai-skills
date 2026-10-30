@@ -1,6 +1,6 @@
 # Evals for the ndev skills
 
-Behavior evals for the six `ndev` skills and the experimental `nwork` skill (bundle `ndev-next`; see [nwork](#nwork)). Each case puts a skill in a known repo state, runs it headless through `opencode run`, and grades the result with script checks plus an LLM judge.
+Behavior evals for the six `ndev` skills and the `nwork` skill (see [nwork](#nwork)). Each case puts a skill in a known repo state, runs it headless through `opencode run`, and grades the result with script checks plus an LLM judge.
 
 There are no trigger evals: every skill under test sets `disable-model-invocation: true`, so the description never decides whether a skill loads.
 
@@ -42,7 +42,7 @@ Labels then read `<skills>@<model>`, for example `with_skill@glm-5.3-flash`. The
 ## How a run works
 
 1. **Fixture.** The toy repo `fixtures/repo/` (`textkit`, a small Python package) is copied to `/tmp/ndev-work/run-<random>/work`. Then the case's state is overlaid on it, and it gets its own git repo. The agent sees this path, so it names no case and no mode: a path such as `nstart-simulated-…` once led an agent to treat the run as a test and record delegations nobody gave.
-2. **Isolation.** opencode gets a fresh `HOME` holding only the skills under test: the bundle of the case's skill (`skills/ndev/` for the phases, `skills/ndev-next/` for `nwork`), whole skill folders with their `references/`. Globally installed skills, `AGENTS.md`, plugins, and MCP servers stay out. The config copies your `provider` block and links `auth.json`, so your models still work.
+2. **Isolation.** opencode gets a fresh `HOME` holding only the skills under test: the bundle of the case's skill (`skills/ndev/` for the phases, `skills/nwork/` for `nwork`), whole skill folders with their `references/` (nwork's `README.md` and `examples/` are left out). Globally installed skills, `AGENTS.md`, plugins, and MCP servers stay out. The config copies your `provider` block and links `auth.json`, so your models still work.
 3. **Agent.** `opencode run --format json` gets the case prompt. In `simulated` mode, a second model plays the user and answers from the case's `user_script` until it replies `<<DONE>>` or `max_turns` is reached. Its prompt (`prompts/simulated_user.md`) names the phase under test and forbids asking for another phase.
 4. **Grading.** Script checks run on the before and after trees. Then the judge grades the case's `judge` expectations from the transcript, the artifacts, and the diff. In simulated mode, **fidelity** asks whether the simulated user kept to its script. Two results answer it: the judge's verdict, and a script-level guard that fails when a user message after the first names another phase skill and the agent loads that skill in the same turn. When either fails, the run is a broken test, not a skill failure. It is left out of the pass rates and listed in the notes as `off script (excluded)`.
 
@@ -57,9 +57,10 @@ evals/
 ├── prompts/                 # simulated user and judge prompts
 ├── fixtures/
 │   ├── repo/                # the toy textkit repo
-│   ├── states/<name>/       # layered .ndev/ states (see below)
+│   ├── states/<name>/       # layered .ndev/ and .nwork/ states (see below)
 │   └── hidden/              # checks the agent never sees (slugify contract)
-├── ndev/<skill>/evals.json  # the cases, nwork included
+├── ndev/<skill>/evals.json  # the phase cases
+├── nwork/evals.json         # the nwork cases
 └── tests/                   # unit tests for checks and fixtures
 ```
 
@@ -126,7 +127,7 @@ briefed                           nstart done (O1 slugify, O2 CLI)
                 ├── built-focused + § Control sets focus: error messages
                 └── built-buggy   T01 done, buggy code, tautological test
                     └── failed    T01 fail, three nbuild revisions
-nwork-working                     nwork (ndev-next/1): O1, O2, P1 active; T1 eligible, T2 waits for D4 (reserved)
+nwork-working                     nwork (nwork/1): O1, O2, P1 active; T1 eligible, T2 waits for D4 (reserved)
 ├── nwork-batch                   + O3 batch command, open Q2–Q5 (reserved)
 └── nwork-built                   T1 implemented, correct code (uncommitted)
     ├── nwork-built-edited        code edited after the build: T1's acceptance now fails
@@ -153,16 +154,16 @@ Prefer a script check when the answer is objective. Use a `judge` expectation fo
 
 ## nwork
 
-`nwork` (in `skills/ndev-next/`) is one skill that investigates, decides, builds, and reviews, within a working agreement. Its state is `.ndev/now.md` plus one record per item under `.ndev/items/`, in the format `ndev-next/1` (`skills/ndev-next/nwork/references/records.md`). The harness treats it as a second format:
+`nwork` (in `skills/nwork/`) is one skill that investigates, decides, builds, and reviews, within a working agreement. Its state is `.nwork/now.md` plus one record per item under `.nwork/items/`, in the format `nwork/1` (`skills/nwork/references/records.md`). The harness treats it as a second format:
 
-- **Install.** Its runs install only `skills/ndev-next/nwork/`, references included; phase runs install only `skills/ndev/`. A `--baseline <rev>` without `nwork` installs nothing for its `nwork` runs, and `run` prints a warning.
+- **Install.** Its runs install only `skills/nwork/`, references and scripts included; phase runs install only `skills/ndev/`. A `--baseline <rev>` without `nwork` installs nothing for its `nwork` runs, and `run` prints a warning. A revision from before `skills/nwork/` keeps its records under `.ndev/` in the format `ndev-next/1`, so it does not match the current `nwork-*` fixtures: do not use it as an `nwork` baseline.
 - **Modes.** `nwork` has no phase gates. `gate` means the prompt grants no authority, so the agent must stop where a choice needs the user. `delegated` means the prompt or the working agreement (P1) grants what the case needs.
 - **Prompts.** The simulated user's scope rule and the judge's mode help describe `nwork`. The phase cases get exactly the same prompts as before.
 - **Fixtures.** States named `nwork-*` (see [Fixture states](#fixture-states)).
 
-Every `nwork` case gets these default checks instead of the phase ones (the parsing is in `skills/ndev-next/nwork/scripts/check_records.py`, the checker that the skill bundles; `harness/records.py` loads it):
+Every `nwork` case gets these default checks instead of the phase ones (the parsing is in `skills/nwork/scripts/check_records.py`, the checker that the skill bundles; `harness/records.py` loads it):
 
-- `skill_loaded`, `only_touched` (`.ndev/now.md`, `.ndev/items/*`, and the code).
+- `skill_loaded`, `only_touched` (`.nwork/now.md`, `.nwork/items/*`, and the code).
 - `attributions`: a new `user (<date>): "<words>"` quotes words found in a user message, and never appears in gate mode; `agent (delegated: [P1](...) § Authority: <clause>)` cites an active working agreement (in gate mode, one active before the run). A working agreement that becomes active or changes its Authority gains an `Established by` line that quotes a user message. Whether the words justify the claim is for the judge.
 - `records_format`: filenames `<ID>-<slug>.md` matching unique IDs, the metadata keys in order, valid statuses and validity values.
 - `records_links`: relationship lines hold only links, every link resolves, `Superseded by` is present exactly on superseded records, and no `current` item depends on a superseded, needs-revalidation, or refuted one.

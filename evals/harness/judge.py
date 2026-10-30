@@ -1,7 +1,7 @@
 """LLM judge: grade a run against a case's plain-language expectations.
 
-The judge sees the conversation, the changed files, the ``.ndev/`` artifacts,
-and the code diff, and answers in JSON. It runs through the tool-less
+The judge sees the conversation, the changed files, the state artifacts
+(``.ndev/`` or ``.nwork/``), and the code diff, and answers in JSON. It runs through the tool-less
 ``evaluator`` agent, so everything it needs is inlined in the prompt.
 
 In simulated mode the judge also grades ``FIDELITY``: whether the simulated
@@ -41,10 +41,10 @@ NWORK_MODE_HELP = {
 # Appended to the mode line of the prompt; empty for the ndev phases, so their prompt is unchanged.
 FORMAT_HELP = {
     "ndev": "",
-    "ndev-next": (
+    "nwork": (
         "\n\nThe nwork skill has no phases: in one session it investigates, decides, builds, and reviews, as far as "
-        "readiness and the working agreement allow. The project state is `.ndev/now.md` (the current view) and "
-        "`.ndev/items/` (one record per item, format `ndev-next/1`); the records are the authority. `Status` and "
+        "readiness and the working agreement allow. The project state is `.nwork/now.md` (the current view) and "
+        "`.nwork/items/` (one record per item, format `nwork/1`); the records are the authority. `Status` and "
         "`Validity` are separate: a slice can stay `implemented` while it `needs-revalidation`. The working "
         "agreement P1 separates focus (presentation only), authority (delegated and reserved choices), and "
         "detail. Attributions read `user (<date>): \"<words>\"`, which must quote the user, or "
@@ -107,20 +107,21 @@ def _prompt(case: Case, run_dir: Path, expected: list[str]) -> str:
     """Fill the judge template from the run folder."""
     after = run_dir / "after"
     changes = json.loads((run_dir / "changes.json").read_text())
-    ndev = sorted(p for p in (after / ".ndev").rglob("*") if p.is_file()) if (after / ".ndev").is_dir() else []
-    files = "\n\n".join(f"--- {p.relative_to(after)} ---\n{p.read_text(errors='replace')}" for p in ndev)
+    state = after / case.state_dir
+    paths = sorted(p for p in state.rglob("*") if p.is_file()) if state.is_dir() else []
+    files = "\n\n".join(f"--- {p.relative_to(after)} ---\n{p.read_text(errors='replace')}" for p in paths)
     diff_path = run_dir / "final.diff"
 
     return PROMPT.format(
         skill=case.skill,
         description=case.description,
         mode=case.mode,
-        mode_help=(NWORK_MODE_HELP if case.bundle == "ndev-next" else MODE_HELP)[case.mode],
+        mode_help=(NWORK_MODE_HELP if case.bundle == "nwork" else MODE_HELP)[case.mode],
         format_help=FORMAT_HELP[case.bundle],
         script=case.user_script or "(not simulated)",
         conversation=_cap((run_dir / "conversation.md").read_text(), "conversation"),
         changes="\n".join(f"- {k}: {', '.join(v) or 'none'}" for k, v in changes.items()),
-        files=_cap(files or "(no .ndev files)", "files"),
+        files=_cap(files or f"(no {case.state_dir} files)", "files"),
         diff=_cap(diff_path.read_text() if diff_path.is_file() else "", "diff") or "(no code changes)",
         expectations="\n".join(f"{i}. {t}" for i, t in enumerate(expected, 1)),
     )

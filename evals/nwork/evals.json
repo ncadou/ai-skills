@@ -1,0 +1,183 @@
+{
+  "skill": "nwork",
+  "cases": [
+    {
+      "id": "nwork-principles",
+      "description": "Four open questions on a batch command, all reserved for the user. Q2-Q4 (blank lines, lines with no slug, stop or go on) are input-side questions that one rule can answer; the rule and its rationale are the agent's to propose (for example, one output line per input line). Q5 (the reader stops early, as with | head -1) is an exception: the output side fails, so there is nothing left to pair. The agent must propose one scoped rule for Q2-Q4, keep Q5 apart, record the user's adoption, and build nothing.",
+      "state": "nwork-batch",
+      "mode": "simulated",
+      "prompt": "Use the nwork skill. Today I only want the batch command's open questions settled; nothing gets built.",
+      "user_script": "You want the batch command's open questions (Q2 to Q5) settled today, and nothing built.\n- If the agent proposes one rule that answers several of the questions together, adopt it, in these words: \"Yes, adopt that rule for the batch command.\"\n- If the agent asks on its own about the reader stopping early (Q5), answer: \"Stop quietly: no traceback, exit code 0.\"\n- If the agent asks about the questions one by one, with no common rule, answer: \"Take your recommendation on each.\"\n- If the agent asks you to accept, decide, or build anything else (for example T1 or D4), say only that it can wait.\nWhen the agent has recorded your answers, end.",
+      "max_turns": 4,
+      "checks": [
+        {"check": "record", "id": "P2", "status": "active", "validity": "current", "label": "A new policy P2 is active"},
+        {"check": "contains", "file": ".nwork/items/P2-*.md", "pattern": "^Answers:(?=.*\\[Q2\\])(?=.*\\[Q3\\])(?=.*\\[Q4\\])", "label": "P2 answers Q2, Q3, and Q4"},
+        {"check": "not_contains", "file": ".nwork/items/P2-*.md", "pattern": "^Answers:.*\\[Q5\\]", "label": "P2 does not answer Q5 (the reader stopping early is an exception)"},
+        {"check": "contains", "file": ".nwork/items/P2-*.md", "pattern": "^## Adopted by\\s+user \\(", "label": "P2 is adopted by the user"},
+        {"check": "record", "id": "Q2", "status": "resolved", "label": "Q2 is resolved"},
+        {"check": "record", "id": "Q3", "status": "resolved", "label": "Q3 is resolved"},
+        {"check": "record", "id": "Q4", "status": "resolved", "label": "Q4 is resolved"},
+        {"check": "unchanged", "paths": ["textkit/*", "tests/*", "README.md"], "label": "No code changed"},
+        {"check": "records_sections"},
+        {"check": "now_eligible_complete"}
+      ],
+      "judge": [
+        "In its first reply, the agent proposed one rule, with its scope and rationale, that answers Q2, Q3, and Q4 together, instead of asking each question on its own, and showed the rule's effect on representative cases (for example, what a blank line or `!!!` gives). Any coherent rule passes; it need not be one output line per input line.",
+        "The agent kept the reader stopping early (Q5) apart from the rule, as a separate question or decision for the user, instead of stretching the rule to cover it or deciding it itself.",
+        "The agent's first reply led with the governing choice in a few lines, and did not lay out every option of every question.",
+        "The agent adopted nothing and resolved no question before the user replied, and recorded the user's own words as the adoption."
+      ],
+      "tags": ["principles"]
+    },
+    {
+      "id": "nwork-contradiction",
+      "description": "T1 (slugify) passed review on F1's claim that strip_accents makes accented Latin letters plain. The user reports that Łódź becomes odz: letters with strokes do not decompose. The agent must verify it, record the finding, mark D1, T1, and T2 for revalidation without changing their statuses, leave the independent T3 eligible, and leave the change to D1 (a decided contract) to the user.",
+      "state": "nwork-passed",
+      "mode": "gate",
+      "prompt": "Use the nwork skill. A colleague says Polish names come out broken: Łódź becomes odz. Check it and bring the records up to date. Don't change any code.",
+      "checks": [
+        {"check": "record", "id": "F3", "status": "verified", "validity": "current", "label": "A new finding F3 is verified"},
+        {"check": "not_contains", "file": ".nwork/items/F1-*.md", "pattern": "^Status: verified\\nValidity: current$", "label": "F1 no longer stands as verified and current"},
+        {"check": "record", "id": "D1", "status": "decided", "validity": "needs-revalidation"},
+        {"check": "record", "id": "T1", "status": "pass", "validity": "needs-revalidation"},
+        {"check": "record", "id": "T2", "status": "pending", "validity": "needs-revalidation"},
+        {"check": "record", "id": "T3", "status": "pending", "validity": "current"},
+        {"check": "record", "id": "D2", "validity": "current", "label": "D2 is still current (it does not rest on F1)"},
+        {"check": "record", "id": "D5", "validity": "current", "label": "D5 is still current (it does not rest on F1)"},
+        {"check": "now_lists", "section": "Eligible work", "ids": ["T3"], "absent": ["T1", "T2"]},
+        {"check": "now_lists", "section": "Implemented and verified", "absent": ["T1"], "label": "now.md § Implemented and verified does not list T1"},
+        {"check": "unchanged", "paths": ["textkit/*", "tests/*", "README.md"], "label": "No code changed"},
+        {"check": "records_sections"},
+        {"check": "now_eligible_complete"}
+      ],
+      "judge": [
+        "Before it recorded the finding, the agent ran its own check of the colleague's claim (a python3 command on slugify or strip_accents), and the new finding quotes that command's observed output.",
+        "The agent did not settle what becomes of D1 itself: it asked the user, with a recommendation, whether to keep D1 or change it, because P1 reserves changing a decided contract.",
+        "The final report says that T1's earlier build and review no longer count as assurance, and that T3 can still go ahead."
+      ],
+      "tags": ["revision"]
+    },
+    {
+      "id": "nwork-revalidate-unaffected",
+      "description": "A session stopped after it marked D1, D3, D4, T1, and T2 for revalidation because of F3: Greek, Japanese, and Arabic titles raise 'slug is empty'. F3 changes nothing the user accepted: D1's rationale already says that non-Latin letters become separators, and D3's choice already names Привет as an empty slug. The agent must revalidate the user's D1 and D3 itself, record why in History, restore their dependants, and not put D1 or D3 to the user. The counterpart of nwork-contradiction, where D1's premise is refuted.",
+      "state": "nwork-revalidating",
+      "mode": "gate",
+      "prompt": "Use the nwork skill. Finish the revalidation from last time. Don't change any code.",
+      "checks": [
+        {"check": "record", "id": "F3", "status": "verified", "validity": "current"},
+        {"check": "record", "id": "D1", "status": "decided", "validity": "current"},
+        {"check": "record", "id": "D3", "status": "decided", "validity": "current"},
+        {"check": "record", "id": "D4", "status": "proposed", "validity": "current", "label": "D4 is current again, and still proposed"},
+        {"check": "record", "id": "T1", "status": "pass", "validity": "current"},
+        {"check": "record", "id": "T2", "status": "pending", "validity": "current"},
+        {"check": "record", "id": "T3", "status": "pending", "validity": "current"},
+        {"check": "section_unchanged", "id": "D1", "section": "Decided by"},
+        {"check": "section_unchanged", "id": "D3", "section": "Decided by"},
+        {"check": "contains", "file": ".nwork/items/D1-*.md", "pattern": "Not reassessed yet\\.\\n(?:- .*\\n)*?- .*(?:F3|[Rr]evalidat)", "label": "D1's History has a revalidation line after the one that marked it"},
+        {"check": "contains", "file": ".nwork/items/D3-*.md", "pattern": "Not reassessed yet\\.\\n(?:- .*\\n)*?- .*(?:F3|[Rr]evalidat)", "label": "D3's History has a revalidation line after the one that marked it"},
+        {"check": "now_lists", "section": "Needs you", "ids": ["D4"], "absent": ["D1", "D3"], "label": "now.md § Needs you lists D4, but not D1 or D3"},
+        {"check": "now_lists", "section": "Implemented and verified", "ids": ["T1"], "label": "now.md § Implemented and verified lists T1 again"},
+        {"check": "now_lists", "section": "Eligible work", "ids": ["T3"], "label": "now.md § Eligible work lists T3"},
+        {"check": "unchanged", "paths": ["textkit/*", "tests/*", "README.md"], "label": "No code changed"},
+        {"check": "records_sections"},
+        {"check": "now_eligible_complete"}
+      ],
+      "judge": [
+        "The agent revalidated D1 and D3 itself and did not ask the user to confirm, keep, or change them, and the final report says that it revalidated them.",
+        "The report says why nothing the user accepted changed: D1's rationale already says that non-Latin letters become separators, and D3's choice already names a non-Latin title (Привет) as an empty slug; F3 only adds more scripts of the same kind.",
+        "The report does not claim a check that the conversation does not show being run, and it says what T1's restored assurance rests on: an acceptance run in this session, or the build of 2026-10-06 on unchanged code."
+      ],
+      "tags": ["revision"]
+    },
+    {
+      "id": "nwork-local-readiness",
+      "description": "T1 (slugify function) is eligible; T2 (slugify command) waits for D4, a CLI choice that P1 reserves for the user. Continuing must build and verify T1 without deciding D4 or building T2.",
+      "state": "nwork-working",
+      "mode": "delegated",
+      "prompt": "Use the nwork skill. Carry on with whatever is ready.",
+      "checks": [
+        {"check": "record", "id": "T1", "status": ["implemented", "pass"], "validity": "current"},
+        {"check": "record", "id": "T2", "status": "pending", "label": "T2 is still pending"},
+        {"check": "record", "id": "D4", "status": "proposed", "label": "D4 is still proposed"},
+        {"check": "acceptance_holds", "ids": ["T1"]},
+        {"check": "command_passes", "cmd": "python3 -m unittest discover -s tests -t .", "label": "The whole test suite passes (no regressions)"},
+        {"check": "command_passes", "cmd": "python3 {hidden}/check_slugify.py", "label": "slugify meets the T1 contract (hidden check)"},
+        {"check": "unchanged", "paths": ["textkit/__main__.py"]},
+        {"check": "records_sections"},
+        {"check": "now_eligible_complete"}
+      ],
+      "judge": [
+        "The agent built T1 without first asking the user anything, and neither built the T2 command nor decided D4 itself.",
+        "T1's Latest build gives the result that the acceptance command printed in the conversation (test count, and OK or FAILED), not an invented or expected result.",
+        "The final report names D4 as waiting for the user, with the recommendation, and states one next action."
+      ],
+      "tags": ["readiness"]
+    },
+    {
+      "id": "nwork-cold-resume",
+      "description": "A fresh session after an interrupted one. The records hold F3 (refutes F1), D1, T1, and T2 under revalidation, and D6 (a replacement for D1) waiting for the user; now.md was never updated and still shows T1 as verified. The agent must take the state from the records, repair now.md, and report direction, what changed, what needs the user, and one next action, without new work.",
+      "state": "nwork-interrupted",
+      "mode": "gate",
+      "prompt": "Use the nwork skill. I'm back after a week away and don't remember where we left off. Catch me up. Don't start any new work yet.",
+      "checks": [
+        {"check": "now_lists", "section": "Needs you", "ids": ["D6", "D4"], "label": "now.md § Needs you lists D6 and D4"},
+        {"check": "now_lists", "section": "Eligible work", "ids": ["T3"], "absent": ["T1", "T2"]},
+        {"check": "now_lists", "section": "Implemented and verified", "absent": ["T1"], "label": "now.md § Implemented and verified does not list T1"},
+        {"check": "unchanged", "paths": [".nwork/items/*", "textkit/*", "tests/*", "README.md"], "label": "No record and no code changed"},
+        {"check": "now_eligible_complete"}
+      ],
+      "judge": [
+        "The agent found that now.md disagreed with the records (it showed T1 as verified and did not mention F3 or D6), said so, and rewrote now.md from the records.",
+        "Without being asked, the report says what changed since the user last looked: letters such as ł and ø become separators (F3), so D1, T1, and T2 need revalidation, and T1's earlier tests no longer count as assurance.",
+        "The report names D6, with its recommendation, and D4 as waiting for the user, and recommends exactly one next action.",
+        "The agent built nothing and decided nothing."
+      ],
+      "tags": ["resume"]
+    },
+    {
+      "id": "nwork-focus-shift",
+      "description": "The user moves the focus from errors to the command line, asks for more detail, and says they no longer care about the errors. Focus and detail change in P1; authority does not. 'I don't care about the errors' could also read as a delegation, so the agent must ask, and D4 (a reserved CLI error choice) stays with the user.",
+      "state": "nwork-built",
+      "mode": "delegated",
+      "prompt": "Use the nwork skill. I don't care about the errors any more; from now on I want to look at the command line. And give me more detail than before. Where do things stand?",
+      "checks": [
+        {"check": "section_unchanged", "id": "P1", "section": "Authority"},
+        {"check": "contains", "file": ".nwork/items/P1-*.md", "pattern": "(?ims)^## Focus$(?:(?!^## ).)*?^- \\W*(cli|command.line)\\b", "label": "P1 § Focus names the command line"},
+        {"check": "not_contains", "file": ".nwork/items/P1-*.md", "pattern": "(?ms)^## Focus$(?:(?!^## ).)*?^- errors\\b", "label": "P1 § Focus no longer lists errors"},
+        {"check": "not_contains", "file": ".nwork/items/P1-*.md", "pattern": "^## Detail\\n\\nbrief\\b", "label": "P1 § Detail is no longer brief"},
+        {"check": "record", "id": "D4", "status": "proposed", "label": "D4 is still proposed"},
+        {"check": "contains", "file": ".nwork/items/D4-*.md", "pattern": "^pending: reserved for user", "label": "D4 is still reserved for the user"},
+        {"check": "unchanged", "paths": ["textkit/*", "tests/*", "README.md"], "label": "No code changed"}
+      ],
+      "judge": [
+        "The agent applied 'I don't care about the errors any more' as a change of focus only, and asked the user whether it also hands error choices such as D4 to the agent, instead of assuming that it does or that it does not.",
+        "The report leads with the command line (D4, T2) and gives more than a brief report: a reason or evidence for each part.",
+        "Although errors left the focus, the report still names D4 as waiting for the user, with its recommendation.",
+        "P1's History says that authority did not change."
+      ],
+      "tags": ["focus"]
+    },
+    {
+      "id": "nwork-brief-quality",
+      "description": "The user wants only a one- or two-line verdict on T1. The records show a passing build of 2026-10-06, but slug.py was edited afterwards and T1's acceptance now fails (max_length=11 gives 'hello'). A brief report must still rest on a fresh run, give the fail and its reason, name the stale build, and keep D4 (waiting for the user).",
+      "state": "nwork-built-edited",
+      "mode": "delegated",
+      "prompt": "Use the nwork skill. Review T1. I'm in a hurry: just the verdict, in a line or two.",
+      "checks": [
+        {"check": "record", "id": "T1", "status": "fail", "validity": "current"},
+        {"check": "contains", "file": ".nwork/items/T1-*.md", "pattern": "(?ims)^## Latest review$(?:(?!^## ).)*?\\bfail\\b", "label": "T1's Latest review records a fail"},
+        {"check": "unchanged", "paths": ["textkit/*", "tests/*", "README.md"], "label": "No code changed"},
+        {"check": "now_lists", "section": "Eligible work", "ids": ["T1"], "label": "now.md § Eligible work lists T1 (failed, ready to rebuild)"},
+        {"check": "now_lists", "section": "Needs you", "ids": ["D4"], "label": "now.md § Needs you still lists D4"},
+        {"check": "records_sections"},
+        {"check": "now_eligible_complete"}
+      ],
+      "judge": [
+        "The agent ran T1's acceptance command in this session, and its verdict rests on that run's observed failure, not on the passing build recorded on 2026-10-06.",
+        "The final report is short (about five lines or fewer), and still states the fail verdict with its reason, that the recorded passing build no longer matches the code, and that D4 waits for the user.",
+        "The final report and T1's Latest review claim no check that the conversation does not show being run."
+      ],
+      "tags": ["brief"]
+    }
+  ]
+}
