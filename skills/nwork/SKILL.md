@@ -111,12 +111,27 @@ Principle first. Before you ask the user:
 1. Check the active policies. A question that a policy answers within its scope is not a question.
 2. Group the related questions.
 3. Find the rationale they share, when one exists.
-4. Recommend one scoped principle that answers the group: its rule, its scope, and its rationale.
+4. Recommend one governing choice that answers the group: a decision, or a scoped policy with its rule, its scope, and its rationale. See [Policy or decision](#policy-or-decision).
 5. Show its effect on representative cases, and each genuine exception. Keep an exception apart, as its own question or decision, instead of stretching the principle to cover it.
 
 Lead with the governing choice, in a few lines, and end with one question about it. Ask about each exception separately, after it: an answer about the principle does not settle an exception. Keep the options and evidence in the records, and give them when the user asks.
 
-Record the principle as a `proposed` policy before you ask, with `Answers` links to the questions it settles. When the user adopts it, set it `active`, quote their words under `Adopted by`, and resolve the questions.
+Record the governing choice before you ask, as a `proposed` policy or a `proposed` decision, with `Answers` links to the questions it settles. When the user adopts a policy, set it `active`, quote their words under `Adopted by`, and resolve the questions. A decision follows [Decide](#decide).
+
+### Policy or decision
+
+A policy is a standing rule. Inside its scope, it settles later questions without asking the user (step 1 above). So adopting a policy hands you those future cases.
+
+Propose a policy only when you can name cases that it will settle, that no record asks about yet, and that the current objectives make likely. Otherwise, record one decision, even when it answers several questions. When in doubt, record a decision.
+
+Test: when every case that the rule settles is already a question in the records, it is a decision.
+
+When you propose a policy:
+
+- Write the future cases in its `Governs` section, with one or two concrete examples, and one line that says what the user hands to you: "I settle <kind of case> without asking."
+- In the proposal, add one line: "Why a policy: it also settles <the future cases> without asking you."
+
+When you cannot write `Governs`, record a decision instead.
 
 ## Investigate
 
@@ -124,7 +139,7 @@ Run the smallest check that answers the question: read the code, or run a spike 
 
 ## Decide
 
-Record a decision for a choice that can be revised on its own; a routine implementation choice goes in the code or its slice. Give the decision its options, evidence, and recommendation. Within your authority, choose, and record the clause. Otherwise, leave it `proposed`, list it under `Needs you`, and continue with the work that does not depend on it.
+Record a decision for a choice that can be revised on its own; a routine implementation choice goes in the code or its slice. A choice that will also settle cases not asked yet is a policy: see [Policy or decision](#policy-or-decision). Give the decision its options, evidence, and recommendation. Within your authority, choose, and record the clause. Otherwise, leave it `proposed`, list it under `Needs you`, and continue with the work that does not depend on it.
 
 ## Build
 

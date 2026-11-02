@@ -376,13 +376,17 @@ class SectionsTest(_NworkTreeTest):
 
     def test_policy_sections(self) -> None:
         body = "# P2: One line out per line in\n\nStatus: proposed\nValidity: current\nTopics: cli\n\n{}\n## History\n\n- x\n"
-        full = "## Rule\n\nx\n\n## Scope\n\nx\n\n## Options\n\nx\n\n## Rationale\n\nx\n\n## Evidence\n\nx\n\n## Adopted by\n\nx\n"
+        full = "## Rule\n\nx\n\n## Scope\n\nx\n\n## Governs\n\nx\n\n## Options\n\nx\n\n## Rationale\n\nx\n\n## Evidence\n\nx\n\n## Adopted by\n\nx\n"
         self.path("P2-one-line.md").write_text(body.format(full))
         self.assertTrue(self.check("records_sections")[0], "Options and Evidence are allowed")
         self.path("P2-one-line.md").write_text(body.format(full.replace("## Options\n\nx\n\n", "").replace("## Evidence\n\nx\n\n", "")))
         self.assertTrue(self.check("records_sections")[0], "and optional")
         self.path("P2-one-line.md").write_text(body.format(full.replace("## Scope\n\nx\n\n", "")))
         self.assertIn("missing ['Scope']", self.check("records_sections")[1])
+        self.path("P2-one-line.md").write_text(body.format(full.replace("## Governs\n\nx\n\n", "")))
+        self.assertIn("missing ['Governs']", self.check("records_sections")[1], "a policy says what it governs")
+        self.path("P2-one-line.md").write_text(body.format(full.replace("## Governs\n\nx\n\n", "## Governs\n\n")))
+        self.assertIn("'Governs' is empty", self.check("records_sections")[1])
 
 
 class AttributionsTest(_NworkTreeTest):
@@ -492,6 +496,48 @@ class AcceptanceHoldsTest(_NworkTreeTest):
     def test_not_applicable_when_nothing_claims_to_work(self) -> None:
         self.edit("T1-slugify-function.md", "Status: implemented", "Status: pending")
         self.assertIsNone(self.check("acceptance_holds")[0])
+
+
+class DecisionNotPolicyCaseTest(_NworkTreeTest):
+    """nwork-decision-not-policy: its script checks tell one decision from a policy."""
+
+    state = "nwork-version"
+    WORDS = "Yes, go with that for --version."
+    BODY = (
+        "Status: {status}\nValidity: current\nTopics: cli, version\nServes: [O3](O3-version-flag.md)\n"
+        "Answers: [Q2](Q2-version-output.md), [Q3](Q3-version-stream-exit.md), [Q4](Q4-version-with-subcommand.md)\n\n"
+    )
+
+    def _answer(self, filename: str, text: str) -> None:
+        """Write record ``filename`` with ``text``, and resolve Q2 to Q4."""
+        self.path(filename).write_text(text)
+        for q in ("Q2-version-output.md", "Q3-version-stream-exit.md", "Q4-version-with-subcommand.md"):
+            self.edit(q, "Status: open", "Status: resolved")
+
+    def _failed(self) -> list[str]:
+        """Labels of the case's own checks that fail on the trees."""
+        case = next(c for c in load_cases(skills=[NWORK]) if c.id == "nwork-decision-not-policy")
+        ctx = RunContext(case=case, config="with_skill", before=self.before, after=self.after,
+                         changes=diff_trees(self.before, self.after), messages=["Use the nwork skill.", self.WORDS])
+
+        return [r.text for r in run_checks(ctx)[len(NWORK_DEFAULT_CHECKS):] if not r.passed]
+
+    def test_fixture_records_are_valid(self) -> None:
+        self.assertEqual(records.problems(self.after), [])
+
+    def test_one_decision_passes(self) -> None:
+        self._answer("D5-version-flag.md", "# D5: What --version prints\n\n" + self.BODY.format(status="decided") + (
+            "## Choice\n\nargparse's version action.\n\n## Rationale\n\nx\n\n## Evidence\n\nx\n\n"
+            f'## Decided by\n\nuser (2026-10-06): "{self.WORDS}"\n\n## History\n\n- x\n'))
+        self.assertEqual(self._failed(), [])
+
+    def test_policy_fails(self) -> None:
+        self._answer("P2-version-flag.md", "# P2: Follow argparse for --version\n\n" + self.BODY.format(status="active") + (
+            "## Rule\n\nx\n\n## Scope\n\nx\n\n## Governs\n\nx\n\n## Rationale\n\nx\n\n"
+            f'## Adopted by\n\nuser (2026-10-06): "{self.WORDS}"\n\n## History\n\n- x\n'))
+        failed = self._failed()
+        self.assertIn("No new policy: every case is already asked", failed)
+        self.assertIn("A new decision D5 is decided", failed)
 
 
 class DefaultsTest(unittest.TestCase):

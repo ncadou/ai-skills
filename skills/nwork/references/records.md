@@ -107,11 +107,18 @@ A refuted finding keeps its record and stays `current`: the refutation holds. Th
 | Question | `Question`; `Who answers`: `investigation` or `user`, with a reason |
 | Finding | `Claim`; `Evidence`: what was checked, the source, and the observed result |
 | Decision | `Options` when compared; `Recommendation` while proposed; `Choice` once decided; `Rationale`; `Evidence`; `Decided by` |
-| Policy | `Rule`; `Scope`; `Exceptions` when any; `Options` when compared; `Rationale`; `Evidence` when any; `Adopted by` |
+| Policy | `Rule`; `Scope`; `Governs`; `Exceptions` when any; `Options` when compared; `Rationale`; `Evidence` when any; `Adopted by` |
 | Working agreement | see [Working agreement](#working-agreement) |
 | Work slice | `Scope`; `Expected behavior`; `Acceptance`; `Latest build`; `Latest review` |
 
 Evidence records what was observed, never what was expected. Name the source: a file path, a command and its output, a document, or `user` with their words. A finding that rests on an assumption stays `unverified` until something checks it, or until the user accepts it under the working agreement; record which.
+
+A policy's `Governs` says why it is a policy and not a decision:
+
+- the kinds of future case that the rule settles, which no record asks about yet, with one or two concrete examples;
+- one line on what the adopter hands to the agent: "The agent settles <kind of case> without asking."
+
+A rule with no such case is a decision. The working agreement has no `Governs`.
 
 A work slice:
 

@@ -1,0 +1,4 @@
+{
+  "extends": "nwork-working",
+  "description": "nwork-working, plus O3, a --version flag in P1's scope, with three open questions for the user (Q2-Q4: what it prints, on which stream with which exit code, and whether it wins over a subcommand). They share one rationale (follow argparse's version action), but every case of that one flag is already asked: the answer is one decision, not a policy."
+}

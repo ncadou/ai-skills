@@ -56,7 +56,7 @@ SECTIONS = {
     "Q": ("Question", "Who answers"),
     "F": ("Claim", "Evidence"),
     "D": ("Options", "Recommendation", "Choice", "Rationale", "Evidence", "Decided by"),
-    "P": ("Rule", "Scope", "Exceptions", "Options", "Rationale", "Evidence", "Adopted by"),
+    "P": ("Rule", "Scope", "Governs", "Exceptions", "Options", "Rationale", "Evidence", "Adopted by"),
     "WA": ("Scope", "Focus", "Authority", "Detail", "Established by"),
     "T": ("Scope", "Expected behavior", "Acceptance", "Latest build", "Latest review"),
 }
@@ -254,6 +254,9 @@ def section_problems(records: list[Record]) -> list[str]:
 
         if unknown or missing or body != ordered:
             problems.append(f"{rec.filename}: sections {body}; unknown {unknown}, missing {missing}")
+
+        if rec.kind == "P" and "Governs" in body and not rec.sections["Governs"]:
+            problems.append(f"{rec.filename}: 'Governs' is empty; a rule with no future case is a decision")
 
     return problems
 

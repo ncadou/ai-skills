@@ -45,11 +45,13 @@ What the example shows, and where:
 >
 > Effect: a crash costs the work on one batch, never a row, and a rerun needs nothing from you.
 >
+> Why a policy: it also settles the crashes we have not listed, such as a store timeout mid-batch or a rerun that dies too, without asking you.
+>
 > One case falls outside the rule: the source file changed between runs (Q3). Batch numbers then point to other rows (F2), so it needs its own choice. It comes next.
 >
 > Adopt the rule?
 
-The user adopts it, and the rule becomes [P2](snapshots/01-working/.nwork/items/P2-idempotent-batches.md). Its `Exceptions` section points to Q3. The changed-source case becomes [D2](snapshots/01-working/.nwork/items/D2-refuse-changed-source.md): proposed, with a recommendation, and reserved for the user, because it is user-visible and can lose rows. The user decides the progress format ([D3](snapshots/01-working/.nwork/items/D3-progress-line.md)) right away, but leaves D2 for later.
+The user adopts it, and the rule becomes [P2](snapshots/01-working/.nwork/items/P2-idempotent-batches.md). Its `Governs` section names the future crashes it settles, which is why it is a policy and not a decision. Its `Exceptions` section points to Q3. The changed-source case becomes [D2](snapshots/01-working/.nwork/items/D2-refuse-changed-source.md): proposed, with a recommendation, and reserved for the user, because it is user-visible and can lose rows. The user decides the progress format ([D3](snapshots/01-working/.nwork/items/D3-progress-line.md)) right away, but leaves D2 for later.
 
 **Delegated choices.** The agent decides the checkpoint key ([D1](snapshots/01-working/.nwork/items/D1-checkpoint-key.md)) alone, and names the clause of P1 that allows it.
 

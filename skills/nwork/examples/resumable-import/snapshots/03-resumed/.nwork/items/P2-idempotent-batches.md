@@ -22,6 +22,15 @@ Mechanism:
 
 Interrupted imports of an unchanged source file, for [O1](O1-resume-without-loss.md).
 
+## Governs
+
+Each other way that an import of an unchanged source file can stop part-way, which no question asks about yet. For example:
+
+- the store times out, or refuses a request, in the middle of a batch;
+- a rerun that itself dies, so that a third run resumes after two partial ones.
+
+The agent settles how each such case resumes without asking, by this rule.
+
 ## Exceptions
 
 - The source file changed between runs. Batch numbers then point to different rows ([F2](F2-positional-rows.md)), so this rule cannot apply. Kept apart as [Q3](Q3-changed-source.md).

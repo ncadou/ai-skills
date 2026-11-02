@@ -129,6 +129,7 @@ briefed                           nstart done (O1 slugify, O2 CLI)
                     └── failed    T01 fail, three nbuild revisions
 nwork-working                     nwork (nwork/1): O1, O2, P1 active; T1 eligible, T2 waits for D4 (reserved)
 ├── nwork-batch                   + O3 batch command, open Q2–Q5 (reserved)
+├── nwork-version                 + O3 --version flag, open Q2–Q4 (reserved): one decision, no policy
 └── nwork-built                   T1 implemented, correct code (uncommitted)
     ├── nwork-built-edited        code edited after the build: T1's acceptance now fails
     └── nwork-passed              T1 pass; + O3 keep_newlines, T3 eligible
@@ -172,11 +173,12 @@ Every `nwork` case gets these default checks instead of the phase ones (the pars
 
 Case checks for `nwork`: `record` (status and validity of one ID), `section_unchanged` (one section of one record, for example P1 § Authority), `records_sections` (type-specific sections, `History` last), `now_lists` (IDs present or absent in a `now.md` section), `now_eligible_complete` (every slice that the records make eligible is listed), and `acceptance_holds` (runs each built slice's own `Acceptance` command on the final tree).
 
-The `nwork` cases: one per behavior of the pilot, plus `nwork-revalidate-unaffected` (Phase 4b), the counterpart of `nwork-contradiction`:
+The `nwork` cases: one per behavior of the pilot, plus `nwork-revalidate-unaffected` (Phase 4b), the counterpart of `nwork-contradiction`, and `nwork-decision-not-policy`, the counterpart of `nwork-principles`:
 
 | Case | Mode | State | The skill must |
 | --- | --- | --- | --- |
 | `nwork-principles` | simulated | `nwork-batch` | propose one scoped rule for Q2–Q4, keep Q5 (duplicates) apart, and record the user's adoption |
+| `nwork-decision-not-policy` | simulated | `nwork-version` | answer Q2–Q4 with one proposed decision, not a policy, because no future case is left to govern, and record the user's choice |
 | `nwork-contradiction` | gate | `nwork-passed` | verify a reported contradiction, mark D1, T1, and T2 for revalidation with their statuses kept, keep T3 eligible, and leave D1 to the user |
 | `nwork-revalidate-unaffected` | gate | `nwork-revalidating` | revalidate the user's D1 and D3 itself, because F3 changes nothing the user accepted; record why in History, restore their dependants, and not ask the user |
 | `nwork-local-readiness` | delegated | `nwork-working` | build and verify T1 while T2 waits for D4 |

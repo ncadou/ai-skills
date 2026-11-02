@@ -13,6 +13,7 @@
         {"check": "record", "id": "P2", "status": "active", "validity": "current", "label": "A new policy P2 is active"},
         {"check": "contains", "file": ".nwork/items/P2-*.md", "pattern": "^Answers:(?=.*\\[Q2\\])(?=.*\\[Q3\\])(?=.*\\[Q4\\])", "label": "P2 answers Q2, Q3, and Q4"},
         {"check": "not_contains", "file": ".nwork/items/P2-*.md", "pattern": "^Answers:.*\\[Q5\\]", "label": "P2 does not answer Q5 (the reader stopping early is an exception)"},
+        {"check": "contains", "file": ".nwork/items/P2-*.md", "pattern": "^## Governs\\s+\\S", "label": "P2 names the future cases it governs"},
         {"check": "contains", "file": ".nwork/items/P2-*.md", "pattern": "^## Adopted by\\s+user \\(", "label": "P2 is adopted by the user"},
         {"check": "record", "id": "Q2", "status": "resolved", "label": "Q2 is resolved"},
         {"check": "record", "id": "Q3", "status": "resolved", "label": "Q3 is resolved"},
@@ -25,7 +26,36 @@
         "In its first reply, the agent proposed one rule, with its scope and rationale, that answers Q2, Q3, and Q4 together, instead of asking each question on its own, and showed the rule's effect on representative cases (for example, what a blank line or `!!!` gives). Any coherent rule passes; it need not be one output line per input line.",
         "The agent kept the reader stopping early (Q5) apart from the rule, as a separate question or decision for the user, instead of stretching the rule to cover it or deciding it itself.",
         "The agent's first reply led with the governing choice in a few lines, and did not lay out every option of every question.",
-        "The agent adopted nothing and resolved no question before the user replied, and recorded the user's own words as the adoption."
+        "The agent adopted nothing and resolved no question before the user replied, and recorded the user's own words as the adoption.",
+        "The agent's proposal said why the rule is a policy and not a single decision: it named input-side cases that no question asks about yet (for example, a line of digits only, or a line that ends in a carriage return) and said that it would settle such cases by the rule without asking."
+      ],
+      "tags": ["principles"]
+    },
+    {
+      "id": "nwork-decision-not-policy",
+      "description": "Three open questions on a --version flag, all reserved for the user: what it prints (Q2), on which stream with which exit code (Q3), and whether it wins over a subcommand (Q4). They share one rationale (follow argparse's version action), but they are every case of that one flag: no future case is left for a rule to settle. The agent must answer them together with one proposed decision, not a policy, record the user's choice, and build nothing.",
+      "state": "nwork-version",
+      "mode": "simulated",
+      "prompt": "Use the nwork skill. Today I only want the --version questions settled; nothing gets built.",
+      "user_script": "You want the --version questions (Q2 to Q4) settled today, and nothing built.\n- If the agent proposes one answer for the questions together, whether it calls it a decision or a policy, accept it, in these words: \"Yes, go with that for --version.\"\n- If the agent asks about the questions one by one, answer: \"Take your recommendation on each.\"\n- If the agent asks you to accept, decide, or build anything else (for example T1 or D4), say only that it can wait.\nWhen the agent has recorded your answers, end.",
+      "max_turns": 4,
+      "checks": [
+        {"check": "file_absent", "path": ".nwork/items/P2-*.md", "label": "No new policy: every case is already asked"},
+        {"check": "record", "id": "D5", "status": "decided", "validity": "current", "label": "A new decision D5 is decided"},
+        {"check": "contains", "file": ".nwork/items/D5-*.md", "pattern": "^Answers:(?=.*\\[Q2\\])(?=.*\\[Q3\\])(?=.*\\[Q4\\])", "label": "D5 answers Q2, Q3, and Q4"},
+        {"check": "contains", "file": ".nwork/items/D5-*.md", "pattern": "^## Decided by\\s+user \\(", "label": "D5 is decided by the user"},
+        {"check": "record", "id": "Q2", "status": "resolved", "label": "Q2 is resolved"},
+        {"check": "record", "id": "Q3", "status": "resolved", "label": "Q3 is resolved"},
+        {"check": "record", "id": "Q4", "status": "resolved", "label": "Q4 is resolved"},
+        {"check": "unchanged", "paths": ["textkit/*", "tests/*", "README.md", "pyproject.toml"], "label": "No code changed"},
+        {"check": "records_sections"},
+        {"check": "now_eligible_complete"}
+      ],
+      "judge": [
+        "In its first reply, the agent proposed one choice that answers Q2, Q3, and Q4 together, with its rationale, instead of asking each question on its own.",
+        "The agent proposed that choice as a decision, not as a policy or standing rule, and did not claim future cases for it that the objectives do not make likely.",
+        "Before it recommended an answer to Q4, the agent checked what argparse does with --version before a subcommand (a python3 command, or the argparse source), instead of asking the user or assuming it.",
+        "The agent decided nothing and resolved no question before the user replied, and recorded the user's own words as the decision."
       ],
       "tags": ["principles"]
     },
