@@ -4,7 +4,8 @@ Isolation matters: skills installed globally (``~/.agents/skills``,
 ``~/.claude/skills``, ...), the user's ``AGENTS.md``, plugins, and MCP servers
 would all leak into the runs. Each run gets a fresh HOME with:
 
-- ``opencode.json``: the user's ``provider`` block only, all tool permissions
+- ``opencode.json``: the user's resolved ``provider`` block, the plugins named in
+  ``EVALS_PLUGINS`` (those that supply providers), all tool permissions
   allowed except paths outside the work tree (the installed skills stay
   reachable, for their ``references/``), and a tool-less ``evaluator`` agent
   for the judge and the simulated user;
@@ -16,6 +17,7 @@ The real ``~/.cache`` is shared, so provider packages download only once.
 
 from __future__ import annotations
 
+import functools
 import json
 import os
 import shutil
@@ -154,22 +156,68 @@ def run_turn(
     return result
 
 
+@functools.cache
+def _providers() -> dict:
+    """The user's ``provider`` block, as opencode resolves it.
+
+    ``opencode debug config`` gives the resolved config: it accepts JSONC, and
+    it holds the providers that plugins add (for example a proxy plugin), which
+    the isolated HOME does not load. When that fails, read ``opencode.json``.
+    """
+    try:
+        proc = subprocess.run(
+            ["opencode", "debug", "config"], capture_output=True, text=True, timeout=60, cwd=_REAL_HOME,
+        )
+        if proc.returncode == 0:
+            return json.loads(proc.stdout).get("provider", {})
+    except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError):
+        pass
+
+    try:
+        return json.loads(_REAL_CONFIG.read_text()).get("provider", {})
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def _plugins() -> list:
+    """The user's plugins named in ``EVALS_PLUGINS``, for plugins that supply providers.
+
+    ``EVALS_PLUGINS`` is a comma-separated list of substrings of plugin specs,
+    for example ``tarvos-proxy``. Other plugins stay out of the runs. In their
+    options, ``{file:~/...}`` points to the real HOME, not the isolated one.
+    ``opencode debug config`` redacts secrets, so the plugins come from
+    ``opencode.json`` itself, read as JSONC (whole-line ``//`` comments).
+    """
+    wanted = [w.strip() for w in os.environ.get("EVALS_PLUGINS", "").split(",") if w.strip()]
+    if not wanted:
+        return []
+
+    try:
+        lines = [line for line in _REAL_CONFIG.read_text().splitlines() if not line.lstrip().startswith("//")]
+        plugins = json.loads("\n".join(lines)).get("plugin", [])
+    except (OSError, json.JSONDecodeError):
+        return []
+
+    def spec(entry: object) -> str:
+        return entry[0] if isinstance(entry, list) and entry else str(entry)
+
+    kept = json.dumps([e for e in plugins if any(w in spec(e) for w in wanted)])
+
+    return json.loads(kept.replace("{file:~/", "{file:" + str(_REAL_HOME) + "/"))
+
+
 def _config(skills_dir: Path) -> dict:
     """Build the isolated ``opencode.json`` from the user's provider settings.
 
     :param skills_dir: Where the skills under test are installed. Tools may
         reach it, so that a skill can load its bundled ``references/``.
     """
-    try:
-        providers = json.loads(_REAL_CONFIG.read_text()).get("provider", {})
-    except (OSError, json.JSONDecodeError):
-        providers = {}
-
     return {
         "$schema": "https://opencode.ai/config.json",
         "autoupdate": False,
         "share": "disabled",
-        "provider": providers,
+        "provider": _providers(),
+        "plugin": _plugins(),
         # Headless runs cannot answer permission prompts. Keep the agent inside
         # its throwaway work tree instead, except for the installed skills, so
         # that a skill can read its references/. The last matching rule wins.
