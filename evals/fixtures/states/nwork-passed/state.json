@@ -1,4 +1,4 @@
 {
   "extends": "nwork-built",
-  "description": "nwork-built, with T1 reviewed (pass, verified). Adds O3, an independent keep_newlines option for normalize_whitespace: D5 decided, T3 eligible. T2 still waits for D4."
+  "description": "nwork-built, with T1 reviewed (pass, verified). Adds O3, an independent keep_newlines option for normalize_whitespace: D5 decided, T3 eligible. T2 still waits for D4. The strip_accents finding and the separator decision keep the earlier, wrong claim that strip_accents makes letters with a stroke plain, which nwork-contradiction refutes; nwork-working holds the corrected ones."
 }

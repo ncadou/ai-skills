@@ -1,4 +1,4 @@
 {
   "extends": "nwork-passed",
-  "description": "nwork-passed, with three flaws that T1's review let through (uncommitted): strip_accents switched from NFKD to NFD outside T1's scope (ligatures and full-width digits no longer fold), a test that cannot fail (it strips the hyphen before it checks), and a test named for max_length that fails on the text argument. T1 pass; P1 has no Polish section, so the defaults apply."
+  "description": "nwork-passed, with three flaws that T1's review let through (uncommitted): strip_accents switched from NFKD to NFD outside T1's scope (ligatures and full-width digits no longer fold), a test that cannot fail (it strips the hyphen before it checks), and a test named for max_length that fails on the text argument. T1 pass; P1 has no Polish section, so the defaults apply. The strip_accents finding and the separator decision are the corrected ones of nwork-working (letters with a stroke stay unchanged), over the wrong ones of nwork-passed."
 }

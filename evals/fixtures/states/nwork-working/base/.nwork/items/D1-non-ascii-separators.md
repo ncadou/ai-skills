@@ -9,7 +9,7 @@ Answers: [Q1](Q1-non-ascii-letters.md)
 
 ## Options
 
-- Reuse `strip_accents`, then treat every character outside `[a-z0-9]` as a separator. No dependency; `ß` and non-Latin letters become separators.
+- Reuse `strip_accents`, then treat every character outside `[a-z0-9]` as a separator. No dependency; letters with no decomposition become separators.
 - Add a transliteration library. Better coverage, but [O1](O1-slugify-function.md) excludes dependencies.
 
 ## Choice
@@ -18,7 +18,7 @@ Reuse `strip_accents`, lowercase, then replace each run of characters outside `[
 
 ## Rationale
 
-No dependency, and the accent handling is already tested. Only `ß` and non-Latin letters become separators ([F1](F1-accent-helper.md)); the user accepts that loss.
+No dependency, and the accent handling is already tested. Letters with no decomposition become separators: letters with a stroke, `ß`, and non-Latin letters ([F1](F1-accent-helper.md)); the user accepts that loss.
 
 ## Evidence
 
