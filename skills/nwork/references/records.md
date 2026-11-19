@@ -109,7 +109,7 @@ A refuted finding keeps its record and stays `current`: the refutation holds. Th
 | Decision | `Options` when compared; `Recommendation` while proposed; `Choice` once decided; `Rationale`; `Evidence`; `Decided by` |
 | Policy | `Rule`; `Scope`; `Governs`; `Exceptions` when any; `Options` when compared; `Rationale`; `Evidence` when any; `Adopted by` |
 | Working agreement | see [Working agreement](#working-agreement) |
-| Work slice | `Scope`; `Expected behavior`; `Acceptance`; `Latest build`; `Latest review` |
+| Work slice | `Scope`; `Expected behavior`; `Acceptance`; `Latest build`; `Latest review`. A polish slice too: see [Polish slice](#polish-slice) |
 
 Evidence records what was observed, never what was expected. Name the source: a file path, a command and its output, a document, or `user` with their words. A finding that rests on an assumption stays `unverified` until something checks it, or until the user accepts it under the working agreement; record which.
 
@@ -126,6 +126,17 @@ A work slice:
 - `Latest build` records the date, the command that was run, the observed result, and `Basis:`, the IDs the build relied on. Keep the entry when the basis changes, so that earlier results stay distinct from current assurance. Older builds move to History as one line each.
 - `Latest review` records the date, the verdict (`pass` or `fail`), the reasons, and `Accepted by` once accepted. A review that stops because its basis changed records no verdict, and says why.
 - Write `None yet.` in `Latest build` or `Latest review` before the first entry.
+
+### Polish slice
+
+A polish slice is a work slice titled `Polish <unit ID>`, for example `# T5: Polish O1`. Its unit is an objective, or one slice when P1 § Polish says `Unit: slice`.
+
+- `Depends on`: every slice of the unit. `Serves`: the unit's objective.
+- `Scope`: the files that the unit changed, and the scopes of its slices.
+- `Expected behavior`: the bar and the lenses that apply, from P1 § Polish.
+- `Acceptance`: the command that runs the full test suite.
+- `Latest build`: one round: its number and date, the findings by lens and severity, what was fixed, the command that was run, and the observed result. Older rounds move to History as one line each.
+- `Latest review`: the verdict (`pass` when no confirmed finding at or above the bar remains, otherwise `fail`), and the findings that remain, that were deferred to the user, and that were rejected, each with its reason. Later rounds read this list, so that a rejected finding does not come back.
 
 ## Attribution
 
@@ -145,9 +156,10 @@ The working agreement is a policy titled `Working agreement`, scoped to the curr
 - `Focus`: the topics the user wants to examine, each with a line on what it covers. Focus changes presentation only.
 - `Authority`: two lists, `Delegated to the agent` and `Reserved for the user`.
 - `Detail`: `brief`, `normal`, or `deep`. The default is `brief`.
+- `Polish`: one `- <Key>: <value>` line each for `Unit`, `Bar`, `Lenses`, and `Limit`, then `- Source:` with `defaults`, `AGENTS.md`, or `user`. A record with no `Polish` section, or with a key left out, takes the defaults of the skill.
 - `Established by`: the user's instructions that set the agreement, quoted with dates.
 
-A change of focus or detail edits those sections only. It does not create or revoke authority. A change of authority needs the user's words, quoted in `Established by`.
+A change of focus, detail, or polish edits those sections only. It does not create or revoke authority. A change of authority needs the user's words, quoted in `Established by`.
 
 ## Revision
 

@@ -5,7 +5,7 @@ argument-hint: "request, or nothing to continue"
 disable-model-invocation: true
 ---
 
-Work on the project as one agent. Investigate, decide, build, and review, in the order that readiness permits. The user steers through the conversation.
+Work on the project as one agent. Investigate, decide, build, review, and polish, in the order that readiness permits. The user steers through the conversation.
 
 The project state is under `.nwork/`, in the format `nwork/1`. **Read [`references/records.md`](references/records.md) before you read or write a record.** It specifies every record, `now.md`, attribution, and the revision procedure. The records are the authority: take the state from the files, not from memory. A fresh session and a continuing one stand on the same footing.
 
@@ -22,11 +22,11 @@ Look at `.nwork/`:
 ## Start
 
 1. Read the request and the code it touches, enough to propose objectives and a working agreement.
-2. Propose, in one message, the objectives (one line each, with what is out of scope) and one combined working agreement: focus, authority, and detail, with your recommendation. Recommend that you decide mechanics that the user can review later, and that the user keep choices that are user-visible, hard to reverse, or that risk data. When the user keeps acceptance, recommend one acceptance per objective rather than one per slice (see [Review](#review)). In the same message, ask each question that you already know the user must answer under the proposed agreement, each with its ID and your recommendation, so that one reply can settle the agreement and the questions.
+2. Propose, in one message, the objectives (one line each, with what is out of scope) and one combined working agreement: focus, authority, detail, and polish, with your recommendation. Take the polish settings from the project's `AGENTS.md` § `nwork polish` when it exists, otherwise from the defaults in [Polish](#polish); say which. Recommend that you decide mechanics that the user can review later, and that the user keep choices that are user-visible, hard to reverse, or that risk data. When the user keeps acceptance, recommend one acceptance per objective rather than one per slice (see [Review](#review)). In the same message, ask each question that you already know the user must answer under the proposed agreement, each with its ID and your recommendation, so that one reply can settle the agreement and the questions.
 3. Write the objectives, P1 with `Status: proposed`, each known question as a `proposed` decision or an `open` question, and `now.md` with all of them under `Needs you`. Run the record checker, as [Maintain state](#5-maintain-state) says. Stop and wait.
 4. When the user answers, apply their changes, set P1 `active`, and quote their words under `Established by`. Record each answer to a question with the user's words; a question left unanswered stays under `Needs you`.
 
-When the request itself states focus, authority, and detail, skip the proposal and record P1 as `active` from those words. Until P1 is active, only investigate: make no choice, and change no project code.
+When the request itself states focus, authority, and detail, skip the proposal and record P1 as `active` from those words, with the polish settings from `AGENTS.md` or the defaults. Until P1 is active, only investigate: make no choice, and change no project code.
 
 Done when the objectives and an active P1 exist, and `now.md` links to them.
 
@@ -62,7 +62,7 @@ Done when the packet is stated, and each part of it is eligible or has a named b
 
 ### 4. Work
 
-Do the work that each part needs: [investigate](#investigate), [decide](#decide), [build](#build), or [review](#review). Continue until the packet is complete, a choice reserved for the user blocks everything left in it, or an effort limit the user stated is reached. When a reserved choice blocks one part, record it, and continue with the parts that do not depend on it.
+Do the work that each part needs: [investigate](#investigate), [decide](#decide), [build](#build), [review](#review), or [polish](#polish). Continue until the packet is complete, a choice reserved for the user blocks everything left in it, or an effort limit the user stated is reached. When a reserved choice blocks one part, record it, and continue with the parts that do not depend on it.
 
 Done when one of those three conditions holds.
 
@@ -84,13 +84,14 @@ Done when the report states the result, what needs the user, the remaining uncer
 
 ## Working agreement
 
-P1 sets three things, kept separate:
+P1 sets four things, kept separate:
 
 - **Focus**: the topics the user wants to examine. Focus changes the presentation only: the order of the report and the depth of each part.
 - **Authority**: the choices delegated to you, and the choices reserved for the user. Only the user's words create or revoke a delegation. Quote them under `Established by`.
 - **Detail**: `brief`, `normal`, or `deep`. The default is `brief`.
+- **Polish**: when polish runs, its bar, its lenses, and its limit. See [Polish](#polish).
 
-A request about one report ("more detail on that") changes nothing in P1. When the user changes focus or detail for the work ahead, edit only those sections, quote the words under `Established by`, and add a History line that says authority did not change. When the words could also change authority ("I don't care about naming any more"), apply them as focus, and ask whether they also delegate.
+A request about one report ("more detail on that") changes nothing in P1. When the user changes focus, detail, or polish for the work ahead, edit only those sections, quote the words under `Established by`, and add a History line that says authority did not change. When the words could also change authority ("I don't care about naming any more"), apply them as focus, and ask whether they also delegate.
 
 When it is not clear whether a choice is delegated, treat it as reserved: propose it, with a recommendation. When several such choices are of one kind, propose one amendment to P1 § Authority instead of asking about each.
 
@@ -165,9 +166,42 @@ Review a slice that is `implemented`, against its record and its diff. Read the 
 - No regression in the touched area.
 - Types and docstrings match the code; complex logic explains its reasoning; changed public contracts update the project docs.
 
-Record `Latest review` with the verdict and its reasons, and set `pass` or `fail`. A `fail` names what to change; the next build of the slice handles it. Set `accepted` only on the user's words, or under a delegation of acceptance in P1.
+Record `Latest review` with the verdict and its reasons, and set `pass` or `fail`. A `fail` names what to change; the next build of the slice handles it. Set `accepted` only on the user's words, or under a delegation of acceptance in P1. Ask for the acceptance of a slice only when the polish of its unit has passed, or has stopped (see [Polish](#polish)), unless P1 § Polish sets `Unit: off`.
 
-When P1 sets one acceptance per objective, ask for it once, when every slice of the objective has passed review. Work that depends on a slice at `pass` does not wait for its acceptance. List each slice by its ID, with one line on what it delivers and its verdict, so that the user can accept all of them, or add a remark or a change to any one by its ID. Apply the reply to each slice: quote the words that accept it in its `Accepted by`. A remark or a change about one slice applies to that slice only, and a slice that the user asks to change is not accepted.
+When P1 sets one acceptance per objective, ask for it once, when every slice of the objective has passed review and its polish has passed or stopped. Work that depends on a slice at `pass` does not wait for its acceptance. List each slice by its ID, with one line on what it delivers and its verdict, so that the user can accept all of them, or add a remark or a change to any one by its ID. Apply the reply to each slice: quote the words that accept it in its `Accepted by`. A remark or a change about one slice applies to that slice only, and a slice that the user asks to change is not accepted.
+
+## Polish
+
+Polish finds what review lets through, and fixes it in rounds, until the work meets the bar of P1 § Polish. Review checks one slice against its record; polish looks at the whole unit with fresh eyes. A polish is a work slice titled `Polish <unit ID>` (records.md § Polish slice).
+
+The settings are in P1 § Polish. When P1 has no `Polish` section, use the defaults:
+
+- `Unit`: `objective` (default), `slice`, or `off`.
+- `Bar`: the lowest severity that must be left at zero. Default: `major`, so only `minor` and `nit` findings may remain.
+- `Lenses`: `regressions` and `tests` (default), plus each lens that the project adds, in its words.
+- `Limit`: a number of rounds, or a token budget. Default: 3 rounds.
+
+Severities: `blocker` (wrong result, lost data, broken contract), `major` (a regression, an important behavior with no test, a test that cannot fail or does not check what it claims), `minor`, `nit`.
+
+**Start.** A unit is ready for polish when all its slices are `pass` or `accepted`: with `Unit: objective`, every slice that serves the objective; with `Unit: slice`, each slice by itself. Then create its polish slice, and do it as eligible work. Also create one when the user asks ("polish O1"). When a new slice joins a unit that has a polish slice, add it to `Depends on`, and polish again.
+
+**Round.** Each round has three steps:
+
+1. Find. For each lens, start a sub-agent with a fresh context that only reads and runs commands. Give it the unit's diff, from the commit before its first slice to the work tree, the records of the unit's slices and their decisions, the lens, and the findings rejected or deferred in earlier rounds. Ask for findings with a severity, `file:line`, and evidence, as an observed command output where possible. Without sub-agents, do each lens as its own pass: read the diff again, not your memory.
+   - `regressions`: behavior that changed outside what the slices expect. Check the callers of changed code and every changed public function, read the docs, and run the full suite.
+   - `tests`: useless, low-value, or duplicate tests; important behavior with no test; tests that cannot fail, or that do not check what their name or docstring claims; fragile or flaky tests (run them again, in another order); and behavior that the passing tests show but that makes no sense.
+2. Triage. Check each finding against the code yourself; reject a false positive, with the reason. For each confirmed finding:
+   - Within your authority: fix it, with a test when it is about behavior. Add a History line to each slice whose code changed, naming the polish slice.
+   - A choice that P1 reserves: record a `proposed` decision under `Needs you`, and continue with the rest.
+   - A contradiction of a finding or a decision: follow [Revision](#revision).
+   - Too large to fix here (a new contract, or work outside the unit): set the slice `fail` with the finding, or propose a new slice. The polish waits until it passes review again.
+
+   Below the bar, fix what is cheap, local, and within your authority, and record the rest as remaining.
+3. Verify. Run the acceptance command. Record the round as `Latest build`, and the verdict as `Latest review`: `pass` when the suite passes and no confirmed finding at or above the bar remains, otherwise `fail` with what remains.
+
+**Stop.** Run rounds until `pass`, the limit, or two rounds in a row that do not lower the number of findings at or above the bar. At the limit or a stall, the slice stays `fail`: list it under `Needs you`, with what remains and your recommendation (accept as is, more rounds, or a change). It is not eligible until the user answers: do not go past the limit without the user's words.
+
+The report of a polish gives, by severity, what was fixed, what remains, what was deferred to the user, and how many findings were rejected.
 
 ## Revision
 

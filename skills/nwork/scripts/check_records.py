@@ -57,12 +57,13 @@ SECTIONS = {
     "F": ("Claim", "Evidence"),
     "D": ("Options", "Recommendation", "Choice", "Rationale", "Evidence", "Decided by"),
     "P": ("Rule", "Scope", "Governs", "Exceptions", "Options", "Rationale", "Evidence", "Adopted by"),
-    "WA": ("Scope", "Focus", "Authority", "Detail", "Established by"),
+    "WA": ("Scope", "Focus", "Authority", "Detail", "Polish", "Established by"),
     "T": ("Scope", "Expected behavior", "Acceptance", "Latest build", "Latest review"),
 }
 OPTIONAL = ("Out of scope", "Options", "Recommendation", "Choice", "Exceptions")
 # A policy may rest on a shared rationale alone, so its Evidence is optional.
-OPTIONAL_BY_KIND = {"P": ("Evidence",)}
+# A working agreement without Polish takes the polish defaults of the skill.
+OPTIONAL_BY_KIND = {"P": ("Evidence",), "WA": ("Polish",)}
 NOW_SECTIONS = (
     "Goal", "Direction", "Implemented and verified", "Under revalidation",
     "Needs you", "Eligible work", "Next", "Working agreement",

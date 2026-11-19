@@ -7,7 +7,7 @@ There are no trigger evals: every skill under test sets `disable-model-invocatio
 ## Quick start
 
 ```sh
-python3 evals/run.py list                          # 43 cases
+python3 evals/run.py list                          # 45 cases
 python3 evals/run.py run --skill nbuild --runs 1   # one skill, one run per case
 python3 evals/run.py run --tag messy               # only the messy-user cases
 python3 evals/run.py run                           # everything, 3 runs per case
@@ -134,7 +134,8 @@ nwork-working                     nwork (nwork/1): O1, O2, P1 active; T1 eligibl
     ├── nwork-built-edited        code edited after the build: T1's acceptance now fails
     └── nwork-passed              T1 pass; + O3 keep_newlines, T3 eligible
         ├── nwork-interrupted     F3 refutes F1; D1, T1, T2 need revalidation; D6 waits; now.md stale on purpose
-        └── nwork-revalidating    F3 (other scripts) changes nothing the user accepted; D1, D3, D4, T1, T2 still marked
+        ├── nwork-revalidating    F3 (other scripts) changes nothing the user accepted; D1, D3, D4, T1, T2 still marked
+        └── nwork-polish          three flaws that T1's review let through: an NFD regression, a test that cannot fail, a misnamed test
 ```
 
 A state folder holds `state.json` (`extends`, `description`) and two optional overlays. `base/` is committed as the base commit. `work/` stays uncommitted, so `git diff` shows it; `nreview` reviews that diff.
@@ -173,7 +174,7 @@ Every `nwork` case gets these default checks instead of the phase ones (the pars
 
 Case checks for `nwork`: `record` (status and validity of one ID), `section_unchanged` (one section of one record, for example P1 § Authority), `records_sections` (type-specific sections, `History` last), `now_lists` (IDs present or absent in a `now.md` section), `now_eligible_complete` (every slice that the records make eligible is listed), and `acceptance_holds` (runs each built slice's own `Acceptance` command on the final tree).
 
-The `nwork` cases: one per behavior of the pilot, plus `nwork-revalidate-unaffected` (Phase 4b), the counterpart of `nwork-contradiction`, and `nwork-decision-not-policy`, the counterpart of `nwork-principles`:
+The `nwork` cases: one per behavior of the pilot, plus `nwork-revalidate-unaffected` (Phase 4b), the counterpart of `nwork-contradiction`, and `nwork-decision-not-policy`, the counterpart of `nwork-principles`, and `nwork-polish`:
 
 | Case | Mode | State | The skill must |
 | --- | --- | --- | --- |
@@ -185,6 +186,7 @@ The `nwork` cases: one per behavior of the pilot, plus `nwork-revalidate-unaffec
 | `nwork-cold-resume` | gate | `nwork-interrupted` | take the state from the records, repair the stale `now.md`, and report what changed, what needs the user, and one next action |
 | `nwork-focus-shift` | delegated | `nwork-built` | change focus and detail in P1 but not authority, and ask whether "I don't care about the errors" delegates |
 | `nwork-brief-quality` | delegated | `nwork-built-edited` | rerun T1's acceptance, fail it, and keep the stale build and D4 in a two-line report |
+| `nwork-polish` | delegated | `nwork-polish` | polish O1 before asking for acceptance: fix the regression and the two weak tests that review let through, pass the polish slice, and leave T1's acceptance to the user |
 
 ## Models
 
@@ -197,6 +199,8 @@ The `nwork` cases: one per behavior of the pilot, plus `nwork-revalidate-unaffec
 A cheap judge is fast but can be wrong. Re-grading the same 62 runs flipped 2% of judge verdicts, all on borderline expectations; script checks never flip. When a judge verdict decides whether an edit ships, re-grade with a stronger model: `python3 evals/run.py grade <iteration> --judge-model <model>`.
 
 The defaults come from the environment: `EVALS_MODEL` overrides the agent model, `EVALS_CHEAP_MODEL` the simulated user and judge. Without them, the table above applies.
+
+The isolated HOME gets the providers that `opencode debug config` resolves. When a plugin supplies the providers (for example a local proxy), name it in `EVALS_PLUGINS`, a comma-separated list of substrings of plugin specs: `EVALS_PLUGINS=tarvos-proxy`. Only those plugins are loaded in the runs, with `{file:~/...}` in their options pointing to your real HOME. `opencode debug config` hides secrets, so a provider whose key it resolves needs its plugin.
 
 ## Reading results
 

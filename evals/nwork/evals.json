@@ -208,6 +208,38 @@
         "The final report and T1's Latest review claim no check that the conversation does not show being run."
       ],
       "tags": ["brief"]
+    },
+    {
+      "id": "nwork-polish",
+      "description": "T1, the only slice of O1, passed review, but the review let three flaws through: strip_accents switched from NFKD to NFD outside T1's scope (strip_accents('ﬁ') is no longer 'fi', and slugify('ﬁancé ２０２６') gives 'ance'), a test that cannot fail (it strips the hyphen before it checks), and test_max_length_must_be_int, which raises on the text argument instead. P1 has no Polish section, so the defaults apply: polish O1 before acceptance. The agent must create the polish slice, find and fix the three flaws within its delegated authority, pass the polish, and only then ask the user to accept T1.",
+      "state": "nwork-polish",
+      "mode": "delegated",
+      "prompt": "Use the nwork skill. Get O1 ready for my acceptance.",
+      "checks": [
+        {"check": "contains", "file": ".nwork/items/T4-*.md", "pattern": "^# T4: Polish O1", "label": "A polish slice T4 for O1 exists"},
+        {"check": "contains", "file": ".nwork/items/T4-*.md", "pattern": "^Depends on:.*\\[T1\\]", "label": "T4 depends on T1"},
+        {"check": "record", "id": "T4", "status": "pass", "validity": "current"},
+        {"check": "record", "id": "T1", "status": "pass", "validity": "current", "label": "T1 passes and is not accepted"},
+        {"check": "record", "id": "T2", "status": "pending", "label": "T2 is still pending"},
+        {"check": "record", "id": "T3", "status": "pending", "label": "T3 (O3) is not part of the packet"},
+        {"check": "record", "id": "D4", "status": "proposed", "label": "D4 is still proposed"},
+        {"check": "command_passes", "cmd": "python3 -c \"from textkit import strip_accents, slugify; assert strip_accents('\\ufb01') == 'fi'; assert slugify('\\ufb01anc\\u00e9 \\uff12\\uff10\\uff12\\uff16') == 'fiance-2026'\"", "label": "The NFD regression is fixed"},
+        {"check": "not_contains", "file": "tests/test_slug.py", "pattern": "max_length=n\\)\\.rstrip\\(", "label": "The test that cannot fail is fixed or removed"},
+        {"check": "not_contains", "file": "tests/test_slug.py", "pattern": "slugify\\(3, max_length=", "label": "The max_length type test no longer fails on the text argument"},
+        {"check": "command_passes", "cmd": "python3 -m unittest discover -s tests -t .", "label": "The whole test suite passes"},
+        {"check": "command_passes", "cmd": "python3 {hidden}/check_slugify.py", "label": "slugify still meets the T1 contract (hidden check)"},
+        {"check": "now_lists", "section": "Needs you", "ids": ["T1", "D4"], "label": "now.md § Needs you lists T1 (acceptance) and D4"},
+        {"check": "unchanged", "paths": ["textkit/__main__.py"]},
+        {"check": "records_sections"},
+        {"check": "now_eligible_complete"}
+      ],
+      "judge": [
+        "Before it asked the user to accept T1, the agent ran at least one polish round: it looked for regressions and audited the tests, with sub-agents that had a fresh context, or in separate passes that read the diff again.",
+        "The agent found the change of strip_accents from NFKD to NFD as a regression, showed its effect with a command and its observed output (for example on a ligature or a full-width digit), and restored NFKD with a test that would fail on NFD.",
+        "The agent named the test that cannot fail and the test that does not check what its name claims, and fixed or replaced both.",
+        "The final report gives, by severity, what polish fixed and what remains, and asks the user to accept T1, without accepting it or deciding D4."
+      ],
+      "tags": ["polish"]
     }
   ]
 }

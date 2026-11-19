@@ -374,6 +374,13 @@ class SectionsTest(_NworkTreeTest):
         self.edit("P1-working-agreement.md", "## Established by", "## Agreed")
         self.assertIn("P1-working-agreement.md", self.check("records_sections")[1])
 
+    def test_working_agreement_polish_is_optional(self) -> None:
+        self.edit("P1-working-agreement.md", "## Established by", "## Polish\n\n- Unit: slice\n\n## Established by")
+        self.assertTrue(self.check("records_sections")[0], "Polish after Detail is allowed")
+        self.edit("P1-working-agreement.md", "## Polish\n\n- Unit: slice\n\n", "")
+        self.edit("P1-working-agreement.md", "## Detail", "## Polish\n\n- Unit: slice\n\n## Detail")
+        self.assertIn("P1-working-agreement.md", self.check("records_sections")[1], "but not out of order")
+
     def test_policy_sections(self) -> None:
         body = "# P2: One line out per line in\n\nStatus: proposed\nValidity: current\nTopics: cli\n\n{}\n## History\n\n- x\n"
         full = "## Rule\n\nx\n\n## Scope\n\nx\n\n## Governs\n\nx\n\n## Options\n\nx\n\n## Rationale\n\nx\n\n## Evidence\n\nx\n\n## Adopted by\n\nx\n"
